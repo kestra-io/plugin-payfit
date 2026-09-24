@@ -1,8 +1,8 @@
 group: io.kestra.plugin.payfit
 name: "payfit"
-title: "Payfit"
-description: "Payfit plugin for Kestra"
-body: ""
+title: "PayFit"
+description: "Tasks and triggers for PayFit company, collaborator, contract, absence, accounting, and payslip data"
+body: "Call the PayFit Partner API from a Kestra flow. Authenticate with a customer API key or a partner OAuth access token, then list or create collaborators and contracts, sync absences, export a monthly accounting journal, download payslips, or start a flow from a poll or webhook."
 videos: []
 createdBy: "Kestra Core Team"
 managedBy: "Kestra Core Team"

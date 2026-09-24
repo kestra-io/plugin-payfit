@@ -1,23 +1,24 @@
-# Kestra Payfit Plugin
+# Kestra PayFit Plugin
 
 ## What
 
-- Provides plugin components under `io.kestra.plugin.payfit`.
-- Includes classes such as `Example`, `Trigger`.
+- Calls the PayFit Partner API from `io.kestra.plugin.payfit`.
+- Includes `auth.Introspect`, `auth.AccessToken`, `company.Get`, collaborator and contract list/get/create tasks, absence list/create/cancel tasks, `accounting.Export`, `payslips.Download`, collaborator and absence polling triggers, and `webhook.Webhook`.
 
 ## Why
 
-- What user problem does this solve? Teams need a concrete starting point for building and validating new Kestra plugins without recreating the same project scaffolding from scratch.
-- Why would a team adopt this plugin in a workflow? It gives plugin authors a ready-made reference repo they can adapt alongside their own build, test, and publishing workflow.
-- What operational/business outcome does it enable? It shortens plugin delivery time, reduces setup mistakes, and makes internal or partner plugin development more repeatable.
+- HR and payroll actions need to run inside the same flow as hiring, leave approval, and month-end close.
+- A customer API key or partner access token is enough to reach one company's PayFit data, including pagination and retries.
+- Triggers start work when collaborators or absences change, or when PayFit posts a webhook.
 
 ## How
 
 ### Architecture
 
-Single-module plugin. Source packages under `io.kestra.plugin`:
+Single-module plugin. Source packages under `io.kestra.plugin.payfit`:
 
-- `payfit`
+- `client` for the HTTP connection, pagination, and change detection
+- `auth`, `company`, `collaborators`, `contracts`, `absences`, `accounting`, `payslips`, `webhook`
 
 Infrastructure dependencies (Docker Compose services):
 
@@ -25,7 +26,11 @@ Infrastructure dependencies (Docker Compose services):
 
 ### Key Plugin Classes
 
-- `io.kestra.plugin.payfit.Example`
+- `io.kestra.plugin.payfit.AbstractPayfitTask`
+- `io.kestra.plugin.payfit.collaborators.List`
+- `io.kestra.plugin.payfit.collaborators.Trigger`
+- `io.kestra.plugin.payfit.absences.Trigger`
+- `io.kestra.plugin.payfit.webhook.Webhook`
 
 ### Project Structure
 

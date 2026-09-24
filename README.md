@@ -35,18 +35,21 @@
 </p>
 <p align="center" style="color:grey;"><i>Get started with Kestra in 3 minutes.</i></p>
 
-# Kestra Payfit Plugin
+# Kestra PayFit Plugin
+
+Sync PayFit company, collaborator, contract, absence, accounting, and payslip data from a Kestra flow. The plugin calls the PayFit Partner API with a customer API key or a partner OAuth access token.
 
 ## Why
 
-- What user problem does this solve? Teams need a concrete starting point for building and validating new Kestra plugins without recreating the same project scaffolding from scratch.
-- Why would a team adopt this plugin in a workflow? It gives plugin authors a ready-made reference repo they can adapt alongside their own build, test, and publishing workflow.
-- What operational/business outcome does it enable? It shortens plugin delivery time, reduces setup mistakes, and makes internal or partner plugin development more repeatable.
+- HR and payroll steps otherwise sit outside the workflow that hires, approves leave, and closes the month.
+- The same flow can create a collaborator, initialize a contract, export the accounting journal, and download a payslip, with secrets and retries handled by Kestra.
+- Polling triggers and the webhook trigger start downstream work when PayFit data changes instead of relying on a separate scheduler.
 
 ## What
 
-- Provides plugin components under `io.kestra.plugin.payfit`.
-- Includes classes such as `Example`, `Trigger`.
+- Connection handling for bearer tokens, company-id introspection, pagination, and retry of rate limits and transient errors lives in `io.kestra.plugin.payfit.client`.
+- Tasks are grouped under `auth`, `company`, `collaborators`, `contracts`, `absences`, `accounting`, and `payslips`.
+- `collaborators.Trigger` and `absences.Trigger` poll for creates and updates. `webhook.Webhook` receives PayFit webhook posts.
 
 ## Running Kestra locally with this plugin
 

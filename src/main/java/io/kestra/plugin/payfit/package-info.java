@@ -1,7 +1,7 @@
 @PluginSubGroup(
-    title = "Payfit",
-    description = "Payfit plugin for Kestra",
-    categories = PluginSubGroup.PluginCategory.DATA
+    title = "PayFit",
+    description = "Tasks and triggers for the PayFit Partner API: company, collaborators, contracts, absences, accounting, and payslips.",
+    categories = {PluginSubGroup.PluginCategory.DATA}
 )
 package io.kestra.plugin.payfit;
 
