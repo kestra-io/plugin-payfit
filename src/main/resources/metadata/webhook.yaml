@@ -1,0 +1,8 @@
+group: io.kestra.plugin.payfit.webhook
+name: "webhook"
+title: "PayFit Webhooks"
+description: "Start a flow when PayFit posts a webhook event"
+body: "Expose a Kestra webhook URL for PayFit events. Optionally require a shared secret header and filter on the event type."
+videos: []
+createdBy: "Kestra Core Team"
+managedBy: "Kestra Core Team"
