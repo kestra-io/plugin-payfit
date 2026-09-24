@@ -1,0 +1,8 @@
+group: io.kestra.plugin.payfit.payslips
+name: "payslips"
+title: "PayFit Payslips"
+description: "Download a collaborator payslip as a PDF or JSON document"
+body: "Store a payslip from the contract payslip endpoint. PDF is the default. Requires the contracts:payslips:read scope."
+videos: []
+createdBy: "Kestra Core Team"
+managedBy: "Kestra Core Team"

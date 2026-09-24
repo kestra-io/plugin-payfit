@@ -1,0 +1,8 @@
+group: io.kestra.plugin.payfit.auth
+name: "auth"
+title: "PayFit Authentication"
+description: "Inspect a PayFit token and exchange an OAuth authorization code"
+body: "Use Introspect to read the company id and scopes bound to an API key or access token. Use AccessToken to exchange a partner authorization code at the PayFit OAuth token endpoint."
+videos: []
+createdBy: "Kestra Core Team"
+managedBy: "Kestra Core Team"

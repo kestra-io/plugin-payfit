@@ -1,0 +1,8 @@
+group: io.kestra.plugin.payfit.company
+name: "company"
+title: "PayFit Company"
+description: "Read the PayFit company profile for the authenticated token"
+body: "Fetch the company id, name, and country from GET /companies/{companyId}."
+videos: []
+createdBy: "Kestra Core Team"
+managedBy: "Kestra Core Team"

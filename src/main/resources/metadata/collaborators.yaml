@@ -1,0 +1,8 @@
+group: io.kestra.plugin.payfit.collaborators
+name: "collaborators"
+title: "PayFit Collaborators"
+description: "List, fetch, create, and poll PayFit collaborators"
+body: "Read collaborators with the collaborators:read scope and create them with collaborators:write. A created collaborator has no contract until contracts.Create initializes one. The polling trigger records the current set on its first run."
+videos: []
+createdBy: "Kestra Core Team"
+managedBy: "Kestra Core Team"

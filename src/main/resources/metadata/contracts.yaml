@@ -1,0 +1,8 @@
+group: io.kestra.plugin.payfit.contracts
+name: "contracts"
+title: "PayFit Contracts"
+description: "List, fetch, and initialize PayFit employment contracts"
+body: "List contracts with the contracts:read scope. Initialize a contract for an API-created collaborator with the job title and start date."
+videos: []
+createdBy: "Kestra Core Team"
+managedBy: "Kestra Core Team"

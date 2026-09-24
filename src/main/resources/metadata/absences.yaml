@@ -1,0 +1,8 @@
+group: io.kestra.plugin.payfit.absences
+name: "absences"
+title: "PayFit Absences"
+description: "List, create, cancel, and poll PayFit absences"
+body: "Read absences with time:read and create or cancel them with time:write. PayFit returns approved absences unless a status filter is set. Absences cannot be updated; cancel the existing one and create a replacement."
+videos: []
+createdBy: "Kestra Core Team"
+managedBy: "Kestra Core Team"

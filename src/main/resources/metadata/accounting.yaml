@@ -1,0 +1,8 @@
+group: io.kestra.plugin.payfit.accounting
+name: "accounting"
+title: "PayFit Accounting"
+description: "Export a monthly PayFit accounting journal"
+body: "Download GET /companies/{companyId}/accounting-v2 for a YYYYMM payroll period. Requires the accounting:read scope."
+videos: []
+createdBy: "Kestra Core Team"
+managedBy: "Kestra Core Team"
