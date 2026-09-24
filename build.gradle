@@ -74,6 +74,8 @@ dependencies {
     testImplementation "io.micronaut.test:micronaut-test-junit5"
     testImplementation "io.micronaut:micronaut-jackson-databind"
 
+    testImplementation "org.wiremock:wiremock-standalone:3.13.1"
+
     // test deps needed only for to have a runner
     testAnnotationProcessor group: "io.kestra", name: "processor", version: kestraVersion
     testImplementation group: "io.kestra", name: "core", version: kestraVersion
