@@ -40,12 +40,14 @@ public abstract class AbstractPayfitTrigger extends AbstractTrigger implements P
     )
     @NotNull
     @PluginProperty(secret = true, group = "connection")
+    @ToString.Exclude
     private Property<String> apiKey;
 
     @Schema(
         title = "Company ID",
         description = "PayFit company identifier. When omitted, the trigger resolves it through token introspection."
     )
+    @PluginProperty(group = "connection")
     private Property<String> companyId;
 
     @Schema(
@@ -53,6 +55,7 @@ public abstract class AbstractPayfitTrigger extends AbstractTrigger implements P
         description = "Base URL of the PayFit Partner API. Defaults to `https://partner-api.payfit.com`."
     )
     @Builder.Default
+    @PluginProperty(group = "connection")
     private Property<String> baseUrl = Property.ofValue(PayfitClient.DEFAULT_BASE_URL);
 
     @Schema(
@@ -60,6 +63,7 @@ public abstract class AbstractPayfitTrigger extends AbstractTrigger implements P
         description = "Base URL used for token introspection. Defaults to `https://oauth.payfit.com`."
     )
     @Builder.Default
+    @PluginProperty(group = "connection")
     private Property<String> oauthUrl = Property.ofValue(PayfitClient.DEFAULT_OAUTH_URL);
 
     @Schema(
@@ -81,18 +85,21 @@ public abstract class AbstractPayfitTrigger extends AbstractTrigger implements P
         description = "When to fire. `CREATE` starts new executions for resources that were not in the previous snapshot. Defaults to `CREATE`."
     )
     @Builder.Default
+    @PluginProperty(group = "processing")
     private Property<On> on = Property.ofValue(On.CREATE);
 
     @Schema(
         title = "State key",
         description = "KV key used to store the resources already seen. Defaults to `<namespace>_<flowId>_<triggerId>`."
     )
+    @PluginProperty(group = "processing")
     private Property<String> stateKey;
 
     @Schema(
         title = "State TTL",
         description = "Age of an individual resource version after which it is treated as new again. The snapshot key itself is kept, so an expired watermark still fires"
     )
+    @PluginProperty(group = "processing")
     private Property<Duration> stateTtl;
 
     @Schema(
@@ -100,6 +107,7 @@ public abstract class AbstractPayfitTrigger extends AbstractTrigger implements P
         description = "When `false` (the default), the first poll records the current PayFit resources and does not start an execution. Later polls fire only for resources that match `on`."
     )
     @Builder.Default
+    @PluginProperty(group = "processing")
     private Property<Boolean> fireOnInitial = Property.ofValue(false);
 
     protected PayfitClient client(RunContext runContext) throws IllegalVariableEvaluationException {

@@ -5,6 +5,7 @@ import java.util.Map;
 
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
+import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.RunnableTask;
 import io.kestra.core.runners.RunContext;
@@ -54,30 +55,34 @@ import lombok.experimental.SuperBuilder;
 public class Create extends AbstractPayfitTask implements RunnableTask<Create.Output> {
     @Schema(title = "Collaborator id returned by `collaborators.Create`")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> collaboratorId;
 
     @Schema(title = "Job title")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> jobTitle;
 
     @Schema(title = "Contract start date, as `YYYY-MM-DD`")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> startDate;
 
     @Override
     public Output run(RunContext runContext) throws Exception {
-        String collaboratorId = PayfitConnections.required(runContext, this.collaboratorId, "collaboratorId");
+        String rCollaboratorId = PayfitConnections.required(runContext, this.collaboratorId, "collaboratorId");
+        String rJobTitle = PayfitConnections.required(runContext, this.jobTitle, "jobTitle");
+        String rStartDate = PayfitValidators.isoDate(PayfitConnections.required(runContext, this.startDate, "startDate"), "startDate");
         Map<String, Object> request = new LinkedHashMap<>();
-        request.put("jobTitle", PayfitConnections.required(runContext, jobTitle, "jobTitle"));
-        request.put("startDate", PayfitValidators.isoDate(PayfitConnections.required(runContext, startDate, "startDate"), "startDate"));
+        request.put("jobTitle", rJobTitle);
+        request.put("startDate", rStartDate);
 
         try (PayfitClient client = client(runContext)) {
             client.requireCountry("FR");
-            String path = client.companyPath("/collaborators/" + PayfitClient.pathSegment(collaboratorId) + "/contracts");
+            String path = client.companyPath("/collaborators/" + PayfitClient.pathSegment(rCollaboratorId) + "/contracts");
             Map<String, Object> response = client.post(path, request);
             return Output.builder()
                 .id(JsonBodies.firstId(response))
-                .collaboratorId(collaboratorId)
                 .body(response)
                 .build();
         }
@@ -88,9 +93,6 @@ public class Create extends AbstractPayfitTask implements RunnableTask<Create.Ou
     public static class Output implements io.kestra.core.models.tasks.Output {
         @Schema(title = "Created contract id when PayFit returns one. The current API returns an empty 201 body")
         private final String id;
-
-        @Schema(title = "Collaborator id the contract was attached to")
-        private final String collaboratorId;
 
         @Schema(title = "Raw PayFit response")
         private final Map<String, Object> body;

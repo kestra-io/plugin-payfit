@@ -2,15 +2,12 @@ package io.kestra.plugin.payfit.model;
 
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class AccountingEntry {
+public class AccountingEntry extends PayfitPayload {
     private String operationDate;
     private String accountNumber;
     private String accountName;
@@ -20,8 +17,7 @@ public class AccountingEntry {
 
     @Getter
     @NoArgsConstructor
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public static class AnalyticCode {
+    public static class AnalyticCode extends PayfitPayload {
         private String type;
         private String code;
     }

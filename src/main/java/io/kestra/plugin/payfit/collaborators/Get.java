@@ -4,6 +4,7 @@ import java.util.Map;
 
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
+import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.RunnableTask;
 import io.kestra.core.runners.RunContext;
@@ -49,15 +50,16 @@ import lombok.experimental.SuperBuilder;
 public class Get extends AbstractPayfitTask implements RunnableTask<Get.Output> {
     @Schema(title = "Collaborator id")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> collaboratorId;
 
     @Override
     public Output run(RunContext runContext) throws Exception {
-        String collaboratorId = PayfitConnections.required(runContext, this.collaboratorId, "collaboratorId");
+        String rCollaboratorId = PayfitConnections.required(runContext, this.collaboratorId, "collaboratorId");
         try (PayfitClient client = client(runContext)) {
-            Map<String, Object> body = client.get(client.companyPath("/collaborators/" + PayfitClient.pathSegment(collaboratorId)), Map.of());
+            Map<String, Object> body = client.get(client.companyPath("/collaborators/" + PayfitClient.pathSegment(rCollaboratorId)), Map.of());
             return Output.builder()
-                .id(body.get("id") == null ? collaboratorId : body.get("id").toString())
+                .id(body.get("id") == null ? rCollaboratorId : body.get("id").toString())
                 .collaborator(body)
                 .build();
         }

@@ -14,7 +14,7 @@ public final class WebhookRequests {
 
     public static boolean svix(String secret, String id, String timestamp, String signature, String body, Instant now) {
         if (secret == null || secret.isBlank()) {
-            return true;
+            return false;
         }
         if (id == null || timestamp == null || signature == null || body == null) {
             return false;
@@ -56,15 +56,6 @@ public final class WebhookRequests {
         } catch (IllegalArgumentException e) {
             return null;
         }
-    }
-
-    public static boolean authorized(String expected, String actual) {
-        if (expected == null || expected.isBlank()) {
-            return true;
-        }
-        byte[] left = expected.getBytes(StandardCharsets.UTF_8);
-        byte[] right = actual == null ? new byte[0] : actual.getBytes(StandardCharsets.UTF_8);
-        return MessageDigest.isEqual(left, right);
     }
 
     public static String eventType(Object body) {

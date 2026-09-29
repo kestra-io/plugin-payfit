@@ -31,7 +31,7 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 @Schema(
     title = "Exchange a PayFit authorization code",
-    description = "Exchanges an OAuth 2.0 authorization code at `POST https://oauth.payfit.com/token`. The access token is valid for the company that approved the integration."
+    description = "Exchanges an OAuth 2.0 authorization code at `POST https://oauth.payfit.com/token` using `application/x-www-form-urlencoded`. No API key is sent. The access token is valid for the company that approved the integration."
 )
 @Plugin(
     examples = {
@@ -56,28 +56,34 @@ import lombok.experimental.SuperBuilder;
 public class AccessToken extends Task implements RunnableTask<AccessToken.Output> {
     @Schema(title = "OAuth client id")
     @NotNull
+    @PluginProperty(group = "connection")
     private Property<String> clientId;
 
     @Schema(title = "OAuth client secret")
     @NotNull
     @PluginProperty(secret = true, group = "connection")
+    @ToString.Exclude
     private Property<String> clientSecret;
 
     @Schema(title = "Authorization code returned to the redirect URI")
     @NotNull
     @PluginProperty(secret = true, group = "connection")
+    @ToString.Exclude
     private Property<String> code;
 
     @Schema(title = "Redirect URI used when the authorization code was issued")
     @NotNull
+    @PluginProperty(group = "connection")
     private Property<String> redirectUri;
 
     @Schema(title = "OAuth grant type. Defaults to `authorization_code`")
     @Builder.Default
+    @PluginProperty(group = "connection")
     private Property<String> grantType = Property.ofValue("authorization_code");
 
     @Schema(title = "OAuth base URL. Defaults to `https://oauth.payfit.com`")
     @Builder.Default
+    @PluginProperty(group = "connection")
     private Property<String> oauthUrl = Property.ofValue(PayfitClient.DEFAULT_OAUTH_URL);
 
     @Schema(title = "HTTP client options")
@@ -85,25 +91,26 @@ public class AccessToken extends Task implements RunnableTask<AccessToken.Output
 
     @Override
     public Output run(RunContext runContext) throws Exception {
-        String clientId = PayfitConnections.required(runContext, this.clientId, "clientId");
-        String clientSecret = PayfitConnections.required(runContext, this.clientSecret, "clientSecret");
-        String code = PayfitConnections.required(runContext, this.code, "code");
-        String grantType = PayfitConnections.optional(runContext, this.grantType);
-        PayfitValidators.requiredText(grantType, "grantType");
+        String rClientId = PayfitConnections.required(runContext, this.clientId, "clientId");
+        String rClientSecret = PayfitConnections.required(runContext, this.clientSecret, "clientSecret");
+        String rCode = PayfitConnections.required(runContext, this.code, "code");
+        String rGrantType = PayfitConnections.optional(runContext, this.grantType);
+        PayfitValidators.requiredText(rGrantType, "grantType");
         Map<String, Object> request = new LinkedHashMap<>();
-        request.put("client_id", clientId);
-        request.put("client_secret", clientSecret);
-        request.put("code", code);
-        request.put("grant_type", grantType);
+        request.put("client_id", rClientId);
+        request.put("client_secret", rClientSecret);
+        request.put("code", rCode);
+        request.put("grant_type", rGrantType);
         request.put("redirect_uri", PayfitConnections.required(runContext, this.redirectUri, "redirectUri"));
 
         try (PayfitClient client = new PayfitClient(
             runContext,
-            "oauth-exchange",
+            null,
             null,
             PayfitClient.DEFAULT_BASE_URL,
             PayfitConnections.optional(runContext, this.oauthUrl),
-            options
+            options,
+            false
         )) {
             Map<String, Object> body = client.accessToken(request);
             String accessToken = body.get("access_token") == null ? null : body.get("access_token").toString();
@@ -114,7 +121,6 @@ public class AccessToken extends Task implements RunnableTask<AccessToken.Output
                 .scope(body.get("scope") == null ? null : body.get("scope").toString())
                 .companyId(body.get("company_id") == null ? JsonBodies.firstId(body) : body.get("company_id").toString())
                 .expiresIn(body.get("expires_in") instanceof Number number ? number.longValue() : null)
-                .body(body)
                 .build();
         }
     }
@@ -136,8 +142,5 @@ public class AccessToken extends Task implements RunnableTask<AccessToken.Output
 
         @Schema(title = "Lifetime in seconds, when PayFit returns `expires_in`")
         private final Long expiresIn;
-
-        @Schema(title = "Raw token response")
-        private final Map<String, Object> body;
     }
 }

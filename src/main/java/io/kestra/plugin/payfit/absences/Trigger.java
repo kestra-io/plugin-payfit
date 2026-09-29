@@ -1,6 +1,5 @@
 package io.kestra.plugin.payfit.absences;
 
-import java.net.URI;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -10,6 +9,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
+import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.conditions.ConditionContext;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.property.Property;
@@ -24,7 +24,6 @@ import io.kestra.plugin.payfit.client.ChangeSet;
 import io.kestra.plugin.payfit.client.PayfitClient;
 import io.kestra.plugin.payfit.client.PayfitConnections;
 import io.kestra.plugin.payfit.client.PayfitValidators;
-import io.kestra.plugin.payfit.client.StoredDocuments;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -73,40 +72,45 @@ public class Trigger extends AbstractPayfitTrigger implements TriggerOutput<Trig
         .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     @Schema(title = "Restrict polling to one contract")
+    @PluginProperty(group = "main")
     private Property<String> contractId;
 
     @Schema(title = "Absence status filter. Omit it to use PayFit's default of approved absences")
+    @PluginProperty(group = "main")
     private Property<String> status;
 
     @Schema(title = "Include absences that end on or after this date (`YYYY-MM-DD`)")
+    @PluginProperty(group = "main")
     private Property<String> beginDate;
 
     @Schema(title = "Include absences that start on or before this date (`YYYY-MM-DD`)")
+    @PluginProperty(group = "main")
     private Property<String> endDate;
 
     @Schema(title = "Maximum pages to read on each poll. Defaults to 100")
     @Builder.Default
+    @PluginProperty(group = "processing")
     private Property<Integer> maxPages = Property.ofValue(100);
 
     @Override
     public Optional<Execution> evaluate(ConditionContext conditionContext, TriggerContext context) throws Exception {
         RunContext runContext = conditionContext.getRunContext();
         Map<String, String> query = new LinkedHashMap<>();
-        String contractId = PayfitConnections.optional(runContext, this.contractId);
-        if (contractId != null) {
-            query.put("contractId", contractId);
+        String rContractId = PayfitConnections.optional(runContext, this.contractId);
+        if (rContractId != null) {
+            query.put("contractId", rContractId);
         }
-        String status = PayfitValidators.absenceStatus(PayfitConnections.optional(runContext, this.status));
-        if (status != null) {
-            query.put("status", status);
+        String rStatus = PayfitValidators.absenceStatus(PayfitConnections.optional(runContext, this.status));
+        if (rStatus != null) {
+            query.put("status", rStatus);
         }
-        String beginDate = PayfitConnections.optional(runContext, this.beginDate);
-        if (beginDate != null) {
-            query.put("beginDate", PayfitValidators.isoDate(beginDate, "beginDate"));
+        String rBeginDate = PayfitConnections.optional(runContext, this.beginDate);
+        if (rBeginDate != null) {
+            query.put("beginDate", PayfitValidators.isoDate(rBeginDate, "beginDate"));
         }
-        String endDate = PayfitConnections.optional(runContext, this.endDate);
-        if (endDate != null) {
-            query.put("endDate", PayfitValidators.isoDate(endDate, "endDate"));
+        String rEndDate = PayfitConnections.optional(runContext, this.endDate);
+        if (rEndDate != null) {
+            query.put("endDate", PayfitValidators.isoDate(rEndDate, "endDate"));
         }
 
         java.util.List<Map<String, Object>> resources;
@@ -144,11 +148,14 @@ public class Trigger extends AbstractPayfitTrigger implements TriggerOutput<Trig
             Trigger::version
         );
         StatefulTriggerService.writeState(runContext, key, decision.state(), Optional.empty());
-        if (decision.initialSnapshot() || decision.fired().isEmpty()) {
+        if (decision.initialSnapshot()) {
+            runContext.logger().info("Recorded {} existing PayFit absences without starting an execution", decision.state().size());
             return Optional.empty();
         }
-        URI uri = runContext.storage() == null ? null : StoredDocuments.storeJson(runContext, decision.fired(), "payfit-absence-changes.json");
-        Output output = Output.builder().count(decision.fired().size()).uri(uri).absences(decision.fired()).build();
+        if (decision.fired().isEmpty()) {
+            return Optional.empty();
+        }
+        Output output = Output.builder().count(decision.fired().size()).absences(decision.fired()).build();
         return Optional.of(TriggerService.generateExecution(this, conditionContext, context, output));
     }
 
@@ -174,13 +181,10 @@ public class Trigger extends AbstractPayfitTrigger implements TriggerOutput<Trig
     @Builder
     @Getter
     public static class Output implements io.kestra.core.models.tasks.Output {
-        @Schema(title = "Number of absences that matched the trigger")
+        @Schema(title = "Number of absences that matched `on`")
         private final int count;
 
-        @Schema(title = "Internal storage URI of the matching absences")
-        private final URI uri;
-
-        @Schema(title = "Absences that were created or updated")
+        @Schema(title = "Absences that matched `on`, not the full company list")
         private final java.util.List<Map<String, Object>> absences;
     }
 }

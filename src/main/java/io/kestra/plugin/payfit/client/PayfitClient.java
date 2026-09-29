@@ -36,8 +36,6 @@ import io.kestra.plugin.payfit.model.Company;
 public final class PayfitClient implements AutoCloseable {
     public static final String DEFAULT_BASE_URL = "https://partner-api.payfit.com";
     public static final String DEFAULT_OAUTH_URL = "https://oauth.payfit.com";
-    private static final int BODY_LIMIT = 2_000;
-
     private final RunContext runContext;
     private final String apiKey;
     private final String configuredCompanyId;
@@ -56,7 +54,22 @@ public final class PayfitClient implements AutoCloseable {
         String oauthUrl,
         HttpConfiguration options
     ) {
-        if (apiKey == null || apiKey.isBlank()) {
+        this(runContext, apiKey, companyId, baseUrl, oauthUrl, options, true);
+    }
+
+    /**
+     * @param requireApiKey when false, the client can call the OAuth token endpoint without a bearer token
+     */
+    public PayfitClient(
+        RunContext runContext,
+        String apiKey,
+        String companyId,
+        String baseUrl,
+        String oauthUrl,
+        HttpConfiguration options,
+        boolean requireApiKey
+    ) {
+        if (requireApiKey && (apiKey == null || apiKey.isBlank())) {
             throw new IllegalArgumentException("apiKey is required");
         }
         this.runContext = runContext;
@@ -86,29 +99,21 @@ public final class PayfitClient implements AutoCloseable {
         if (introspection != null) {
             return introspection;
         }
-        Map<String, Object> body = postAbsolute(oauthUrl + "/introspect", Map.of("token", apiKey), true);
+        Map<String, Object> body = asMap(send("POST", URI.create(oauthUrl + "/introspect"), Map.of("token", apiKey), Map.of(), true, false));
         Object active = body.get("active");
         if (Boolean.FALSE.equals(active) || "false".equalsIgnoreCase(Objects.toString(active, ""))) {
-            throw new PayfitException(401, "PayFit token is not active", String.valueOf(body));
+            throw new PayfitException(401, "PayFit token is not active. Check the API key or access token.", null);
         }
         introspection = body;
         return body;
     }
 
-    public Map<String, Object> accessToken(Map<String, Object> body) {
-        return postAbsolute(oauthUrl + "/token", body, false);
+    public Map<String, Object> accessToken(Map<String, Object> form) {
+        return asMap(send("POST", URI.create(oauthUrl + "/token"), form, Map.of(), false, true));
     }
 
     public Map<String, Object> get(String path, Map<String, String> query) {
         return asMap(send("GET", partnerUri(path, query), null, Map.of()));
-    }
-
-    public Object getJson(String path, Map<String, String> query) {
-        JsonNode node = send("GET", partnerUri(path, query), null, Map.of());
-        if (node == null || node.isNull() || node.isMissingNode()) {
-            return null;
-        }
-        return mapper.convertValue(node, Object.class);
     }
 
     public Map<String, Object> post(String path, Object body) {
@@ -216,13 +221,13 @@ public final class PayfitClient implements AutoCloseable {
         // A client is opened per request so connection pools are not retained on the task.
     }
 
-    private Map<String, Object> postAbsolute(String url, Object body, boolean bearer) {
-        return asMap(send("POST", URI.create(url), body, bearer ? Map.of() : Map.of("Authorization", "omit")));
+    private JsonNode send(String method, URI uri, Object body, Map<String, String> headers) {
+        return send(method, uri, body, headers, true, false);
     }
 
-    private JsonNode send(String method, URI uri, Object body, Map<String, String> headers) {
+    private JsonNode send(String method, URI uri, Object body, Map<String, String> headers, boolean bearer, boolean formEncoded) {
         try {
-            String raw = this.<String>retry().runRetryIf(this::retryable, () -> execute(method, uri, body, headers));
+            String raw = this.<String>retry().runRetryIf(this::retryable, () -> execute(method, uri, body, headers, bearer, formEncoded));
             if (raw == null || raw.isBlank()) {
                 return mapper.createObjectNode();
             }
@@ -264,8 +269,8 @@ public final class PayfitClient implements AutoCloseable {
         }
     }
 
-    private String execute(String method, URI uri, Object body, Map<String, String> headers) throws Exception {
-        HttpRequest request = request(method, uri, body, headers);
+    private String execute(String method, URI uri, Object body, Map<String, String> headers, boolean bearer, boolean formEncoded) throws Exception {
+        HttpRequest request = request(method, uri, body, headers, bearer, formEncoded);
         try (HttpClient client = new HttpClient(runContext, options)) {
             HttpResponse<String> response = client.request(request, String.class);
             return response.getBody();
@@ -291,7 +296,7 @@ public final class PayfitClient implements AutoCloseable {
     }
 
     private byte[] executeBytes(String method, URI uri, Map<String, String> headers) throws Exception {
-        HttpRequest request = request(method, uri, null, headers);
+        HttpRequest request = request(method, uri, null, headers, true, false);
         try (HttpClient client = new HttpClient(runContext, options)) {
             ByteArrayOutputStream output = new ByteArrayOutputStream();
             client.request(request, response -> {
@@ -325,12 +330,11 @@ public final class PayfitClient implements AutoCloseable {
         }
     }
 
-    private HttpRequest request(String method, URI uri, Object body, Map<String, String> headers) {
+    private HttpRequest request(String method, URI uri, Object body, Map<String, String> headers, boolean bearer, boolean formEncoded) {
         HttpRequest.HttpRequestBuilder builder = HttpRequest.builder()
             .method(method)
             .uri(uri);
-        boolean omitBearer = headers != null && "omit".equals(headers.get("Authorization"));
-        if (!omitBearer) {
+        if (bearer) {
             builder.addHeader("Authorization", "Bearer " + apiKey);
         }
         String accept = headers != null && headers.get("Accept") != null ? headers.get("Accept") : "application/json";
@@ -343,8 +347,14 @@ public final class PayfitClient implements AutoCloseable {
             });
         }
         if (body != null) {
-            builder.addHeader("Content-Type", "application/json");
-            builder.body(HttpRequest.JsonRequestBody.builder().content(body).build());
+            if (formEncoded) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> form = (Map<String, Object>) body;
+                builder.body(HttpRequest.UrlEncodedRequestBody.of(form));
+            } else {
+                builder.addHeader("Content-Type", "application/json");
+                builder.body(HttpRequest.JsonRequestBody.builder().content(body).build());
+            }
         }
         return builder.build();
     }
@@ -401,12 +411,36 @@ public final class PayfitClient implements AutoCloseable {
         int code = exception.getResponse() == null || exception.getResponse().getStatus() == null
             ? 0
             : exception.getResponse().getStatus().getCode();
-        String body = truncate(bodyOf(exception));
-        String message = "PayFit API request failed with status " + code;
-        if (!body.isBlank()) {
-            message = message + ": " + body;
+        String detail = payfitErrorMessage(bodyOf(exception));
+        String action = switch (code) {
+            case 401 -> " Check the API key or access token.";
+            case 403 -> " Check that the token includes the required PayFit scope.";
+            default -> "";
+        };
+        String message = "PayFit API request failed with status " + code + "." + action;
+        if (detail != null) {
+            message = message + " PayFit reported: " + detail;
         }
-        return new PayfitException(code, message, body, exception);
+        return new PayfitException(code, message, detail, exception);
+    }
+
+    private static String payfitErrorMessage(String raw) {
+        if (raw == null || raw.isBlank() || !raw.trim().startsWith("{")) {
+            return null;
+        }
+        try {
+            JsonNode node = JacksonMapper.ofJson().readTree(raw);
+            for (String field : new String[]{"message", "error_description", "error"}) {
+                JsonNode value = node.get(field);
+                if (value != null && value.isTextual() && !value.asText().isBlank()) {
+                    String text = value.asText().trim();
+                    return text.length() <= 300 ? text : text.substring(0, 300);
+                }
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+        return null;
     }
 
     private static String bodyOf(HttpClientResponseException exception) {
@@ -522,14 +556,6 @@ public final class PayfitClient implements AutoCloseable {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value;
-    }
-
-    private static String truncate(String value) {
-        if (value == null) {
-            return "";
-        }
-        String compact = value.replaceAll("\\s+", " ").trim();
-        return compact.length() <= BODY_LIMIT ? compact : compact.substring(0, BODY_LIMIT) + "...";
     }
 
     private static <T> T find(Throwable throwable, Class<T> type) {

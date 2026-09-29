@@ -56,11 +56,9 @@ public class Introspect extends AbstractPayfitTask implements RunnableTask<Intro
             return Output.builder()
                 .companyId(body.get("company_id") == null ? null : body.get("company_id").toString())
                 .active(Boolean.TRUE.equals(body.get("active")) || "true".equalsIgnoreCase(String.valueOf(body.get("active"))))
-                .scope(scope)
                 .scopes(scopes)
                 .tokenType(body.get("token_type") == null ? null : body.get("token_type").toString())
                 .clientId(body.get("client_id") == null ? null : body.get("client_id").toString())
-                .body(body)
                 .build();
         }
     }
@@ -74,10 +72,7 @@ public class Introspect extends AbstractPayfitTask implements RunnableTask<Intro
         @Schema(title = "Whether the token is active")
         private final boolean active;
 
-        @Schema(title = "Space-separated scope string returned by PayFit")
-        private final String scope;
-
-        @Schema(title = "Scopes split from the introspection response")
+        @Schema(title = "Scopes granted to the token")
         private final List<String> scopes;
 
         @Schema(title = "Token type, usually `bearer`")
@@ -85,8 +80,5 @@ public class Introspect extends AbstractPayfitTask implements RunnableTask<Intro
 
         @Schema(title = "OAuth client id, when the token is a partner token")
         private final String clientId;
-
-        @Schema(title = "Raw introspection payload")
-        private final Map<String, Object> body;
     }
 }

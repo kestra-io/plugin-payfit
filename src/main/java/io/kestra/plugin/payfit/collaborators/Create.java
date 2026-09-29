@@ -5,6 +5,7 @@ import java.util.Map;
 
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
+import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.RunnableTask;
 import io.kestra.core.runners.RunContext;
@@ -14,6 +15,8 @@ import io.kestra.plugin.payfit.client.PayfitClient;
 import io.kestra.plugin.payfit.client.PayfitConnections;
 import io.kestra.plugin.payfit.client.PayfitValidators;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -54,41 +57,56 @@ import lombok.experimental.SuperBuilder;
 public class Create extends AbstractPayfitTask implements RunnableTask<Create.Output> {
     @Schema(title = "First name")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> firstName;
 
     @Schema(title = "Last name")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> lastName;
 
     @Schema(title = "Personal email address")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> personalEmail;
 
     @Schema(title = "Additional name, such as a French nom d'usage, a Spanish segundo apellido, or a UK middle name")
+    @PluginProperty(group = "main")
     private Property<String> otherName;
 
     @Schema(title = "Social security number. Allowed lengths are 12 (GB), 14 (ES), and 15 (FR)")
+    @PluginProperty(group = "main")
+    @ToString.Exclude
     private Property<String> socialSecurityNumber;
 
     @Schema(title = "Personal phone number")
+    @PluginProperty(group = "main")
     private Property<String> personalPhoneNumber;
 
     @Schema(title = "Gender. Allowed values are `MALE` and `FEMALE`")
+    @PluginProperty(group = "main")
     private Property<String> gender;
 
     @Schema(title = "Number of children, from 0 to 20")
+    @Min(0)
+    @Max(20)
+    @PluginProperty(group = "main")
     private Property<Integer> numberOfChildren;
 
     @Schema(title = "Send a PayFit invitation email. Maps to `inviteCollaborator`. This beta flag defaults to false when omitted")
+    @PluginProperty(group = "main")
     private Property<Boolean> inviteCollaborator;
 
     @Schema(title = "Personal address object accepted by PayFit")
+    @PluginProperty(group = "main")
     private Property<Map<String, Object>> personalAddress;
 
     @Schema(title = "Birth information object accepted by PayFit")
+    @PluginProperty(group = "main")
     private Property<Map<String, Object>> birthInformation;
 
     @Schema(title = "Additional JSON fields merged into the request. Explicit task properties override keys in this map")
+    @PluginProperty(group = "main")
     private Property<Map<String, Object>> body;
 
     @Override
@@ -98,14 +116,14 @@ public class Create extends AbstractPayfitTask implements RunnableTask<Create.Ou
         explicit.put("lastName", PayfitConnections.required(runContext, lastName, "lastName"));
         explicit.put("personalEmail", PayfitValidators.email(PayfitConnections.required(runContext, personalEmail, "personalEmail"), "personalEmail"));
         explicit.put("otherName", PayfitConnections.optional(runContext, otherName));
-        String socialSecurityNumber = PayfitConnections.optional(runContext, this.socialSecurityNumber);
-        if (socialSecurityNumber != null) {
-            int length = socialSecurityNumber.length();
+        String rSocialSecurityNumber = PayfitConnections.optional(runContext, this.socialSecurityNumber);
+        if (rSocialSecurityNumber != null) {
+            int length = rSocialSecurityNumber.length();
             if (length != 12 && length != 14 && length != 15) {
                 throw new IllegalArgumentException("socialSecurityNumber length must be 12 (GB), 14 (ES), or 15 (FR)");
             }
         }
-        explicit.put("socialSecurityNumber", socialSecurityNumber);
+        explicit.put("socialSecurityNumber", rSocialSecurityNumber);
         explicit.put("personalPhoneNumber", PayfitConnections.optional(runContext, personalPhoneNumber));
         explicit.put("gender", PayfitValidators.gender(PayfitConnections.optional(runContext, gender)));
         explicit.put("numberOfChildren", PayfitValidators.children(PayfitConnections.optionalInt(runContext, numberOfChildren)));

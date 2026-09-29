@@ -58,12 +58,15 @@ import lombok.experimental.SuperBuilder;
 )
 public class List extends AbstractPayfitTask implements RunnableTask<List.Output> {
     @Schema(title = "Filter by a contract email address. Login emails are not searchable")
+    @PluginProperty(group = "main")
     private Property<String> email;
 
     @Schema(title = "Page size. PayFit allows 1 to 50. When omitted, each request asks for 50 except `FETCH_ONE`, which asks for 1")
+    @PluginProperty(group = "processing")
     private Property<Integer> maxResults;
 
     @Schema(title = "Pagination token from a previous response. Listing resumes from this token")
+    @PluginProperty(group = "processing")
     private Property<String> nextPageToken;
 
     @Schema(
@@ -76,19 +79,20 @@ public class List extends AbstractPayfitTask implements RunnableTask<List.Output
 
     @Schema(title = "Maximum number of pages to read. Defaults to 100. Ignored for `FETCH_ONE`")
     @Builder.Default
+    @PluginProperty(group = "processing")
     private Property<Integer> maxPages = Property.ofValue(100);
 
     @Override
     public Output run(RunContext runContext) throws Exception {
-        FetchType fetchType = this.fetchType == null
+        FetchType rFetchType = this.fetchType == null
             ? FetchType.FETCH
             : runContext.render(this.fetchType).as(FetchType.class).orElse(FetchType.FETCH);
-        ListFetch.Plan plan = ListFetch.plan(fetchType, PayfitConnections.optionalInt(runContext, maxResults));
-        int maxPages = PayfitConnections.integer(runContext, this.maxPages, 100);
+        ListFetch.Plan plan = ListFetch.plan(rFetchType, PayfitConnections.optionalInt(runContext, maxResults));
+        int rMaxPages = PayfitConnections.integer(runContext, this.maxPages, 100);
         Map<String, String> query = new LinkedHashMap<>();
-        String email = PayfitValidators.email(PayfitConnections.optional(runContext, this.email), "email");
-        if (email != null) {
-            query.put("email", email);
+        String rEmail = PayfitValidators.email(PayfitConnections.optional(runContext, this.email), "email");
+        if (rEmail != null) {
+            query.put("email", rEmail);
         }
         String token = PayfitConnections.optional(runContext, nextPageToken);
         if (token != null) {
@@ -102,10 +106,10 @@ public class List extends AbstractPayfitTask implements RunnableTask<List.Output
                 query,
                 plan.fetchAll(),
                 plan.pageSize(),
-                maxPages,
+                rMaxPages,
                 io.kestra.plugin.payfit.model.Collaborator.class
             );
-            ListFetch.Result<io.kestra.plugin.payfit.model.Collaborator> result = ListFetch.shape(runContext, fetchType, page.items(), "payfit-collaborators.ion");
+            ListFetch.Result<io.kestra.plugin.payfit.model.Collaborator> result = ListFetch.shape(runContext, rFetchType, page.items(), "payfit-collaborators.ion");
             runContext.metric(Counter.of("records", result.count()));
             return Output.builder()
                 .count(result.count())

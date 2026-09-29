@@ -1,7 +1,7 @@
 @PluginSubGroup(
     title = "PayFit Payslips",
     description = "Download a collaborator payslip. Requires the `contracts:payslips:read` scope.",
-    categories = {PluginSubGroup.PluginCategory.DATA}
+    categories = {PluginSubGroup.PluginCategory.BUSINESS}
 )
 package io.kestra.plugin.payfit.payslips;
 

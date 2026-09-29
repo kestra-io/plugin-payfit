@@ -4,15 +4,16 @@ import java.util.Map;
 
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
+import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.RunnableTask;
+import io.kestra.core.models.tasks.VoidOutput;
 import io.kestra.core.runners.RunContext;
 import io.kestra.plugin.payfit.AbstractPayfitTask;
 import io.kestra.plugin.payfit.client.PayfitClient;
 import io.kestra.plugin.payfit.client.PayfitConnections;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
-import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -46,32 +47,24 @@ import lombok.experimental.SuperBuilder;
         )
     }
 )
-public class Cancel extends AbstractPayfitTask implements RunnableTask<Cancel.Output> {
+public class Cancel extends AbstractPayfitTask implements RunnableTask<VoidOutput> {
     @Schema(title = "Absence id to cancel")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> absenceId;
 
     @Schema(title = "Optional comment recorded on the cancellation")
+    @PluginProperty(group = "main")
     private Property<String> comment;
 
     @Override
-    public Output run(RunContext runContext) throws Exception {
-        String absenceId = PayfitConnections.required(runContext, this.absenceId, "absenceId");
-        String comment = PayfitConnections.optional(runContext, this.comment);
+    public VoidOutput run(RunContext runContext) throws Exception {
+        String rAbsenceId = PayfitConnections.required(runContext, this.absenceId, "absenceId");
+        String rComment = PayfitConnections.optional(runContext, this.comment);
         try (PayfitClient client = client(runContext)) {
-            String path = client.companyPath("/absences/" + PayfitClient.pathSegment(absenceId));
-            Map<String, Object> response = client.delete(path, comment == null ? null : Map.of("comment", comment));
-            return Output.builder().absenceId(absenceId).body(response).build();
+            String path = client.companyPath("/absences/" + PayfitClient.pathSegment(rAbsenceId));
+            client.delete(path, rComment == null ? null : Map.of("comment", rComment));
+            return null;
         }
-    }
-
-    @Builder
-    @Getter
-    public static class Output implements io.kestra.core.models.tasks.Output {
-        @Schema(title = "Cancelled absence id")
-        private final String absenceId;
-
-        @Schema(title = "Raw PayFit response. Empty when PayFit returns no body")
-        private final Map<String, Object> body;
     }
 }

@@ -5,6 +5,7 @@ import java.util.Map;
 
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
+import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.RunnableTask;
 import io.kestra.core.runners.RunContext;
@@ -53,30 +54,33 @@ import lombok.experimental.SuperBuilder;
 public class Download extends AbstractPayfitTask implements RunnableTask<Download.Output> {
     @Schema(title = "Collaborator id")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> collaboratorId;
 
     @Schema(title = "Contract id")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> contractId;
 
     @Schema(title = "Payslip id")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> payslipId;
 
     @Override
     public Output run(RunContext runContext) throws Exception {
-        String collaboratorId = PayfitConnections.required(runContext, this.collaboratorId, "collaboratorId");
-        String contractId = PayfitConnections.required(runContext, this.contractId, "contractId");
-        String payslipId = PayfitConnections.required(runContext, this.payslipId, "payslipId");
-        String path = "/collaborators/" + PayfitClient.pathSegment(collaboratorId)
-            + "/contracts/" + PayfitClient.pathSegment(contractId)
-            + "/payslips/" + PayfitClient.pathSegment(payslipId);
+        String rCollaboratorId = PayfitConnections.required(runContext, this.collaboratorId, "collaboratorId");
+        String rContractId = PayfitConnections.required(runContext, this.contractId, "contractId");
+        String rPayslipId = PayfitConnections.required(runContext, this.payslipId, "payslipId");
+        String path = "/collaborators/" + PayfitClient.pathSegment(rCollaboratorId)
+            + "/contracts/" + PayfitClient.pathSegment(rContractId)
+            + "/payslips/" + PayfitClient.pathSegment(rPayslipId);
         try (PayfitClient client = client(runContext)) {
             byte[] bytes = client.getBytes(client.companyPath(path), Map.of(), Map.of("Accept", "application/pdf"));
             if (bytes.length == 0) {
                 throw new IllegalStateException("PayFit returned an empty payslip");
             }
-            URI uri = StoredDocuments.storeBytes(runContext, bytes, "payfit-payslip-" + payslipId + ".pdf");
+            URI uri = StoredDocuments.storeBytes(runContext, bytes, "payfit-payslip-" + rPayslipId + ".pdf");
             return Output.builder().uri(uri).contentType("application/pdf").size(bytes.length).build();
         }
     }

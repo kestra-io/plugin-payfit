@@ -1,7 +1,7 @@
 @PluginSubGroup(
     title = "PayFit Company",
     description = "Read the company profile bound to a PayFit API key or partner token.",
-    categories = {PluginSubGroup.PluginCategory.DATA}
+    categories = {PluginSubGroup.PluginCategory.BUSINESS}
 )
 package io.kestra.plugin.payfit.company;
 

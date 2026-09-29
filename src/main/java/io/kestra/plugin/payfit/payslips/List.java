@@ -6,6 +6,7 @@ import java.util.Map;
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Metric;
 import io.kestra.core.models.annotations.Plugin;
+import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.executions.metrics.Counter;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.RunnableTask;
@@ -56,6 +57,7 @@ import lombok.experimental.SuperBuilder;
 public class List extends AbstractPayfitTask implements RunnableTask<List.Output> {
     @Schema(title = "Collaborator id")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> collaboratorId;
 
     @Schema(
@@ -69,13 +71,13 @@ public class List extends AbstractPayfitTask implements RunnableTask<List.Output
     @Override
     @SuppressWarnings("unchecked")
     public Output run(RunContext runContext) throws Exception {
-        String collaboratorId = PayfitConnections.required(runContext, this.collaboratorId, "collaboratorId");
-        var fetchType = this.fetchType == null
+        String rCollaboratorId = PayfitConnections.required(runContext, this.collaboratorId, "collaboratorId");
+        var rFetchType = this.fetchType == null
             ? io.kestra.core.models.tasks.common.FetchType.FETCH
             : runContext.render(this.fetchType).as(io.kestra.core.models.tasks.common.FetchType.class).orElse(io.kestra.core.models.tasks.common.FetchType.FETCH);
         try (PayfitClient client = client(runContext)) {
             Map<String, Object> body = client.get(
-                client.companyPath("/collaborators/" + PayfitClient.pathSegment(collaboratorId) + "/payslips"),
+                client.companyPath("/collaborators/" + PayfitClient.pathSegment(rCollaboratorId) + "/payslips"),
                 Map.of()
             );
             Object raw = body.get("payslips");
@@ -85,7 +87,7 @@ public class List extends AbstractPayfitTask implements RunnableTask<List.Output
             java.util.List<io.kestra.plugin.payfit.model.Payslip> payslips = raw == null
                 ? java.util.List.of()
                 : io.kestra.core.serializers.JacksonMapper.ofJson().convertValue(raw, new com.fasterxml.jackson.core.type.TypeReference<java.util.List<io.kestra.plugin.payfit.model.Payslip>>() {});
-            var result = io.kestra.plugin.payfit.client.ListFetch.shape(runContext, fetchType, payslips, "payfit-payslips.ion");
+            var result = io.kestra.plugin.payfit.client.ListFetch.shape(runContext, rFetchType, payslips, "payfit-payslips.ion");
             runContext.metric(Counter.of("records", result.count()));
             return Output.builder()
                 .count(result.count())

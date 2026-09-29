@@ -7,6 +7,7 @@ import java.util.Map;
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Metric;
 import io.kestra.core.models.annotations.Plugin;
+import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.executions.metrics.Counter;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.RunnableTask;
@@ -17,6 +18,8 @@ import io.kestra.plugin.payfit.client.PayfitConnections;
 import io.kestra.plugin.payfit.client.PayfitValidators;
 import io.kestra.plugin.payfit.client.StoredDocuments;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -57,21 +60,29 @@ import lombok.experimental.SuperBuilder;
 )
 public class List extends AbstractPayfitTask implements RunnableTask<List.Output> {
     @Schema(title = "Restrict the list to one contract")
+    @PluginProperty(group = "main")
     private Property<String> contractId;
 
     @Schema(title = "Absence status filter. Defaults to the API default of `approved` when omitted")
+    @PluginProperty(group = "main")
     private Property<String> status;
 
     @Schema(title = "Include absences that end on or after this date (`YYYY-MM-DD`)")
+    @PluginProperty(group = "main")
     private Property<String> beginDate;
 
     @Schema(title = "Include absences that start on or before this date (`YYYY-MM-DD`)")
+    @PluginProperty(group = "main")
     private Property<String> endDate;
 
     @Schema(title = "Page size, from 1 to 50")
+    @Min(1)
+    @Max(50)
+    @PluginProperty(group = "processing")
     private Property<Integer> maxResults;
 
     @Schema(title = "Pagination token from a previous response")
+    @PluginProperty(group = "processing")
     private Property<String> nextPageToken;
 
     @Schema(
@@ -84,36 +95,37 @@ public class List extends AbstractPayfitTask implements RunnableTask<List.Output
 
     @Schema(title = "Maximum pages to read. Defaults to 100")
     @Builder.Default
+    @PluginProperty(group = "processing")
     private Property<Integer> maxPages = Property.ofValue(100);
 
     @Override
     public Output run(RunContext runContext) throws Exception {
         Map<String, String> query = new LinkedHashMap<>();
-        String contractId = PayfitConnections.optional(runContext, this.contractId);
-        if (contractId != null) {
-            query.put("contractId", contractId);
+        String rContractId = PayfitConnections.optional(runContext, this.contractId);
+        if (rContractId != null) {
+            query.put("contractId", rContractId);
         }
-        String status = PayfitValidators.absenceStatus(PayfitConnections.optional(runContext, this.status));
-        if (status != null) {
-            query.put("status", status);
+        String rStatus = PayfitValidators.absenceStatus(PayfitConnections.optional(runContext, this.status));
+        if (rStatus != null) {
+            query.put("status", rStatus);
         }
-        String beginDate = PayfitConnections.optional(runContext, this.beginDate);
-        if (beginDate != null) {
-            query.put("beginDate", PayfitValidators.isoDate(beginDate, "beginDate"));
+        String rBeginDate = PayfitConnections.optional(runContext, this.beginDate);
+        if (rBeginDate != null) {
+            query.put("beginDate", PayfitValidators.isoDate(rBeginDate, "beginDate"));
         }
-        String endDate = PayfitConnections.optional(runContext, this.endDate);
-        if (endDate != null) {
-            query.put("endDate", PayfitValidators.isoDate(endDate, "endDate"));
+        String rEndDate = PayfitConnections.optional(runContext, this.endDate);
+        if (rEndDate != null) {
+            query.put("endDate", PayfitValidators.isoDate(rEndDate, "endDate"));
         }
         String token = PayfitConnections.optional(runContext, nextPageToken);
         if (token != null) {
             query.put("nextPageToken", token);
         }
         try (PayfitClient client = client(runContext)) {
-            var fetchType = this.fetchType == null
+            var rFetchType = this.fetchType == null
                 ? io.kestra.core.models.tasks.common.FetchType.FETCH
                 : runContext.render(this.fetchType).as(io.kestra.core.models.tasks.common.FetchType.class).orElse(io.kestra.core.models.tasks.common.FetchType.FETCH);
-            var plan = io.kestra.plugin.payfit.client.ListFetch.plan(fetchType, PayfitConnections.optionalInt(runContext, maxResults));
+            var plan = io.kestra.plugin.payfit.client.ListFetch.plan(rFetchType, PayfitConnections.optionalInt(runContext, maxResults));
             PayfitClient.Page<io.kestra.plugin.payfit.model.Absence> page = client.list(
                 client.companyPath("/absences"),
                 "absences",
@@ -123,7 +135,7 @@ public class List extends AbstractPayfitTask implements RunnableTask<List.Output
                 PayfitConnections.integer(runContext, maxPages, 100),
                 io.kestra.plugin.payfit.model.Absence.class
             );
-            io.kestra.plugin.payfit.client.ListFetch.Result<io.kestra.plugin.payfit.model.Absence> result = io.kestra.plugin.payfit.client.ListFetch.shape(runContext, fetchType, page.items(), "payfit-absences.ion");
+            io.kestra.plugin.payfit.client.ListFetch.Result<io.kestra.plugin.payfit.model.Absence> result = io.kestra.plugin.payfit.client.ListFetch.shape(runContext, rFetchType, page.items(), "payfit-absences.ion");
             runContext.metric(Counter.of("records", result.count()));
             return Output.builder()
                 .count(result.count())

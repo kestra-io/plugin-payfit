@@ -7,6 +7,7 @@ import java.util.Map;
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Metric;
 import io.kestra.core.models.annotations.Plugin;
+import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.executions.metrics.Counter;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.RunnableTask;
@@ -55,12 +56,15 @@ import lombok.experimental.SuperBuilder;
 )
 public class List extends AbstractPayfitTask implements RunnableTask<List.Output> {
     @Schema(title = "Include contracts that are still being created")
+    @PluginProperty(group = "main")
     private Property<Boolean> includeInProgressContracts;
 
     @Schema(title = "Page size, from 1 to 50")
+    @PluginProperty(group = "processing")
     private Property<Integer> maxResults;
 
     @Schema(title = "Pagination token from a previous response")
+    @PluginProperty(group = "processing")
     private Property<String> nextPageToken;
 
     @Schema(
@@ -73,6 +77,7 @@ public class List extends AbstractPayfitTask implements RunnableTask<List.Output
 
     @Schema(title = "Maximum pages to read. Defaults to 100")
     @Builder.Default
+    @PluginProperty(group = "processing")
     private Property<Integer> maxPages = Property.ofValue(100);
 
     @Override
@@ -86,10 +91,10 @@ public class List extends AbstractPayfitTask implements RunnableTask<List.Output
         if (token != null) {
             query.put("nextPageToken", token);
         }
-        var fetchType = this.fetchType == null
+        var rFetchType = this.fetchType == null
             ? io.kestra.core.models.tasks.common.FetchType.FETCH
             : runContext.render(this.fetchType).as(io.kestra.core.models.tasks.common.FetchType.class).orElse(io.kestra.core.models.tasks.common.FetchType.FETCH);
-        var plan = io.kestra.plugin.payfit.client.ListFetch.plan(fetchType, PayfitConnections.optionalInt(runContext, maxResults));
+        var plan = io.kestra.plugin.payfit.client.ListFetch.plan(rFetchType, PayfitConnections.optionalInt(runContext, maxResults));
         try (PayfitClient client = client(runContext)) {
             PayfitClient.Page<io.kestra.plugin.payfit.model.Contract> page = client.list(
                 client.companyPath("/contracts"),
@@ -100,7 +105,7 @@ public class List extends AbstractPayfitTask implements RunnableTask<List.Output
                 PayfitConnections.integer(runContext, maxPages, 100),
                 io.kestra.plugin.payfit.model.Contract.class
             );
-            io.kestra.plugin.payfit.client.ListFetch.Result<io.kestra.plugin.payfit.model.Contract> result = io.kestra.plugin.payfit.client.ListFetch.shape(runContext, fetchType, page.items(), "payfit-contracts.ion");
+            io.kestra.plugin.payfit.client.ListFetch.Result<io.kestra.plugin.payfit.model.Contract> result = io.kestra.plugin.payfit.client.ListFetch.shape(runContext, rFetchType, page.items(), "payfit-contracts.ion");
             runContext.metric(Counter.of("records", result.count()));
             return Output.builder()
                 .count(result.count())

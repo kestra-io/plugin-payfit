@@ -20,6 +20,7 @@ import io.kestra.core.validations.WebhookValidation;
 import io.kestra.plugin.core.trigger.AbstractWebhookTrigger;
 import io.kestra.plugin.core.trigger.WebhookContext;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -36,7 +37,7 @@ import reactor.core.publisher.Mono;
 @WebhookValidation
 @Schema(
     title = "Receive PayFit webhook events",
-    description = "Starts an execution when PayFit posts a Svix webhook. Set `secret` to the Svix signing secret (`whsec_...`). The request must include `svix-id`, `svix-timestamp`, and `svix-signature`, and the timestamp must be within five minutes. Events whose `type` does not match `eventType` return HTTP 204."
+    description = "Starts an execution when PayFit posts a Svix webhook. `secret` is the Svix signing secret (`whsec_...`) and is required. The request must include `svix-id`, `svix-timestamp`, and `svix-signature`, and the timestamp must be within five minutes. Events whose `type` does not match `eventType` return HTTP 204."
 )
 @Plugin(
     examples = {
@@ -64,15 +65,18 @@ import reactor.core.publisher.Mono;
 public class Webhook extends AbstractWebhookTrigger implements TriggerOutput<Webhook.Output> {
     @Schema(
         title = "Svix signing secret",
-        description = "When set, the request is verified with the Svix signature over `svix-id.svix-timestamp.body`."
+        description = "Required Svix signing secret (`whsec_...`). The request is verified with the signature over `svix-id.svix-timestamp.body`. Requests without a valid signature are rejected."
     )
+    @NotNull
     @PluginProperty(secret = true, group = "connection")
+    @ToString.Exclude
     private Property<String> secret;
 
     @Schema(
         title = "Event type to accept",
         description = "When set, only JSON bodies whose `event`, `eventType`, `type`, or `name` equals this value start an execution."
     )
+    @PluginProperty(group = "processing")
     private Property<String> eventType;
 
     @Override

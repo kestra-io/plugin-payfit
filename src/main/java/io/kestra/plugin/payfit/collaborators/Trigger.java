@@ -1,6 +1,5 @@
 package io.kestra.plugin.payfit.collaborators;
 
-import java.net.URI;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -10,6 +9,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
+import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.conditions.ConditionContext;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.property.Property;
@@ -24,7 +24,6 @@ import io.kestra.plugin.payfit.client.ChangeSet;
 import io.kestra.plugin.payfit.client.PayfitClient;
 import io.kestra.plugin.payfit.client.PayfitConnections;
 import io.kestra.plugin.payfit.client.PayfitValidators;
-import io.kestra.plugin.payfit.client.StoredDocuments;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -72,19 +71,21 @@ public class Trigger extends AbstractPayfitTrigger implements TriggerOutput<Trig
         .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     @Schema(title = "Filter by a contract email address. Login emails are not searchable")
+    @PluginProperty(group = "main")
     private Property<String> email;
 
     @Schema(title = "Maximum pages to read on each poll. Defaults to 100")
     @Builder.Default
+    @PluginProperty(group = "processing")
     private Property<Integer> maxPages = Property.ofValue(100);
 
     @Override
     public Optional<Execution> evaluate(ConditionContext conditionContext, TriggerContext context) throws Exception {
         RunContext runContext = conditionContext.getRunContext();
         Map<String, String> query = new LinkedHashMap<>();
-        String email = PayfitValidators.email(PayfitConnections.optional(runContext, this.email), "email");
-        if (email != null) {
-            query.put("email", email);
+        String rEmail = PayfitValidators.email(PayfitConnections.optional(runContext, this.email), "email");
+        if (rEmail != null) {
+            query.put("email", rEmail);
         }
         java.util.List<Map<String, Object>> resources;
         try (PayfitClient client = client(runContext)) {
@@ -128,8 +129,7 @@ public class Trigger extends AbstractPayfitTrigger implements TriggerOutput<Trig
         if (decision.fired().isEmpty()) {
             return Optional.empty();
         }
-        URI uri = runContext.storage() == null ? null : StoredDocuments.storeJson(runContext, decision.fired(), "payfit-collaborator-changes.json");
-        Output output = Output.builder().count(decision.fired().size()).uri(uri).collaborators(decision.fired()).build();
+        Output output = Output.builder().count(decision.fired().size()).collaborators(decision.fired()).build();
         return Optional.of(TriggerService.generateExecution(this, conditionContext, context, output));
     }
 
@@ -144,13 +144,10 @@ public class Trigger extends AbstractPayfitTrigger implements TriggerOutput<Trig
     @Builder
     @Getter
     public static class Output implements io.kestra.core.models.tasks.Output {
-        @Schema(title = "Number of collaborators that matched the trigger")
+        @Schema(title = "Number of collaborators that matched `on`")
         private final int count;
 
-        @Schema(title = "Internal storage URI of the matching collaborators")
-        private final URI uri;
-
-        @Schema(title = "Collaborators that were created or updated")
+        @Schema(title = "Collaborators that matched `on`, not the full company list")
         private final java.util.List<Map<String, Object>> collaborators;
     }
 }

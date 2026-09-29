@@ -11,12 +11,7 @@ public final class TriggerState {
     private TriggerState() {
     }
 
-    public static boolean initialized(RunContext runContext, String key) {
-        try {
-            return runContext.namespaceKv(runContext.flowInfo().namespace()).getValue(key).isPresent();
-        } catch (Exception e) {
-            runContext.logger().debug("Unable to read PayFit trigger state key {}", key, e);
-            return false;
-        }
+    public static boolean initialized(RunContext runContext, String key) throws Exception {
+        return runContext.namespaceKv(runContext.flowInfo().namespace()).getValue(key).isPresent();
     }
 }

@@ -29,12 +29,14 @@ public abstract class AbstractPayfitTask extends Task {
     )
     @NotNull
     @PluginProperty(secret = true, group = "connection")
+    @ToString.Exclude
     private Property<String> apiKey;
 
     @Schema(
         title = "Company ID",
         description = "PayFit company identifier used in `/companies/{companyId}` paths. When omitted, the task calls `POST https://oauth.payfit.com/introspect` and uses `company_id` from the token."
     )
+    @PluginProperty(group = "connection")
     private Property<String> companyId;
 
     @Schema(
@@ -42,6 +44,7 @@ public abstract class AbstractPayfitTask extends Task {
         description = "Base URL of the PayFit Partner API. Defaults to `https://partner-api.payfit.com`."
     )
     @Builder.Default
+    @PluginProperty(group = "connection")
     private Property<String> baseUrl = Property.ofValue(PayfitClient.DEFAULT_BASE_URL);
 
     @Schema(
@@ -49,6 +52,7 @@ public abstract class AbstractPayfitTask extends Task {
         description = "Base URL used for token introspection and authorization-code exchange. Defaults to `https://oauth.payfit.com`."
     )
     @Builder.Default
+    @PluginProperty(group = "connection")
     private Property<String> oauthUrl = Property.ofValue(PayfitClient.DEFAULT_OAUTH_URL);
 
     @Schema(

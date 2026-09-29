@@ -6,6 +6,7 @@ import java.util.Map;
 
 import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
+import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.RunnableTask;
 import io.kestra.core.runners.RunContext;
@@ -54,33 +55,28 @@ import lombok.experimental.SuperBuilder;
 public class Export extends AbstractPayfitTask implements RunnableTask<Export.Output> {
     @Schema(title = "Payroll period in `YYYYMM` format")
     @NotNull
+    @PluginProperty(group = "main")
     private Property<String> date;
 
     @Override
     public Output run(RunContext runContext) throws Exception {
-        String date = PayfitValidators.accountingPeriod(PayfitConnections.required(runContext, this.date, "date"));
+        String rDate = PayfitValidators.accountingPeriod(PayfitConnections.required(runContext, this.date, "date"));
         try (PayfitClient client = client(runContext)) {
             client.requireCountry("FR");
-            java.util.List<io.kestra.plugin.payfit.model.AccountingEntry> entries = client.readList(
+            java.util.List<io.kestra.plugin.payfit.model.AccountingEntry> rEntries = client.readList(
                 client.companyPath("/accounting-v2"),
-                Map.of("date", date),
+                Map.of("date", rDate),
                 io.kestra.plugin.payfit.model.AccountingEntry.class
             );
-            URI uri = StoredDocuments.storeJson(runContext, entries, "payfit-accounting-" + date + ".json");
-            return Output.builder().date(date).uri(uri).entries(entries).build();
+            URI uri = StoredDocuments.storeJson(runContext, rEntries, "payfit-accounting-" + rDate + ".json");
+            return Output.builder().uri(uri).build();
         }
     }
 
     @Builder
     @Getter
     public static class Output implements io.kestra.core.models.tasks.Output {
-        @Schema(title = "Payroll period that was requested")
-        private final String date;
-
         @Schema(title = "Internal storage URI of the journal JSON")
         private final URI uri;
-
-        @Schema(title = "Accounting entries returned by PayFit")
-        private final java.util.List<io.kestra.plugin.payfit.model.AccountingEntry> entries;
     }
 }

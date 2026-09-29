@@ -1,7 +1,7 @@
 @PluginSubGroup(
     title = "PayFit Contracts",
     description = "List, fetch, and initialize PayFit employment contracts. Listing requires `contracts:read`. Creating a contract is currently limited to French companies and requires `collaborators:contracts:write`.",
-    categories = {PluginSubGroup.PluginCategory.DATA}
+    categories = {PluginSubGroup.PluginCategory.BUSINESS}
 )
 package io.kestra.plugin.payfit.contracts;
 

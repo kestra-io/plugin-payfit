@@ -2,7 +2,7 @@ group: io.kestra.plugin.payfit.webhook
 name: "webhook"
 title: "PayFit Webhooks"
 description: "Start a flow when PayFit posts a webhook event"
-body: "Expose a Kestra webhook URL for PayFit events. Optionally require a shared secret header and filter on the event type."
+body: "Expose a Kestra webhook URL for PayFit events. Every request is verified with the Svix signing secret (`whsec_...`) using `svix-id`, `svix-timestamp`, and `svix-signature`. An optional event type filter accepts only matching events."
 videos: []
 createdBy: "Kestra Core Team"
 managedBy: "Kestra Core Team"
