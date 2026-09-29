@@ -15,12 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WebhookRequestsTest {
     @Test
-    void secretIsRequiredOnlyWhenConfigured() {
-        assertTrue(WebhookRequests.authorized(null, null));
-        assertTrue(WebhookRequests.authorized("  ", "anything"));
-        assertTrue(WebhookRequests.authorized("secret", "secret"));
-        assertFalse(WebhookRequests.authorized("secret", "secret "));
-        assertFalse(WebhookRequests.authorized("secret", null));
+    void blankSecretRejectsEveryRequest() {
+        assertFalse(WebhookRequests.svix(null, "msg_1", "1700000000", "v1,anything", "{}", Instant.ofEpochSecond(1700000000)));
+        assertFalse(WebhookRequests.svix("  ", "msg_1", "1700000000", "v1,anything", "{}", Instant.ofEpochSecond(1700000000)));
     }
 
     @Test

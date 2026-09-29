@@ -77,15 +77,21 @@ class PayfitPluginTest {
             assertEquals(1, partial.getPages());
 
             server.requests.clear();
-            server.handler(request -> PayfitMockServer.Response.json(401, "{\"message\":\"unauthorized\"}"));
+            server.handler(request -> PayfitMockServer.Response.json(401, "{\"message\":\"unauthorized\",\"payslipNet\":\"SECRET-PAY\"}"));
             PayfitException unauthorized = assertThrows(PayfitException.class, () -> listTask(server).build().run(runContext()));
             assertEquals(401, unauthorized.getStatusCode());
+            assertTrue(unauthorized.getMessage().contains("Check the API key"));
+            assertTrue(unauthorized.getMessage().contains("unauthorized"));
+            assertFalse(unauthorized.getMessage().contains("SECRET-PAY"));
             assertEquals(1, server.requests.size());
 
             server.requests.clear();
-            server.handler(request -> PayfitMockServer.Response.json(403, "{\"message\":\"forbidden\"}"));
+            server.handler(request -> PayfitMockServer.Response.json(403, "{\"message\":\"forbidden\",\"iban\":\"FR-SECRET\"}"));
             PayfitException forbidden = assertThrows(PayfitException.class, () -> listTask(server).build().run(runContext()));
             assertEquals(403, forbidden.getStatusCode());
+            assertTrue(forbidden.getMessage().contains("required PayFit scope"));
+            assertTrue(forbidden.getMessage().contains("forbidden"));
+            assertFalse(forbidden.getMessage().contains("FR-SECRET"));
             assertEquals(1, server.requests.size());
         }
     }
@@ -168,8 +174,10 @@ class PayfitPluginTest {
                 assertEquals("POST", request.method());
                 assertEquals("/token", request.path());
                 assertEquals(null, request.authorization());
-                assertTrue(request.body().contains("\"grant_type\":\"authorization_code\""));
+                assertTrue(request.body().contains("grant_type=authorization_code"));
+                assertTrue(request.body().contains("client_secret=super-secret"));
                 assertFalse(request.body().contains("oauth-exchange"));
+                assertFalse(request.body().contains("{"));
                 return PayfitMockServer.Response.json(200, "{\"access_token\":\"access\",\"token_type\":\"bearer\",\"company_id\":\"co\",\"expires_in\":3600}");
             });
 
@@ -248,16 +256,14 @@ class PayfitPluginTest {
                 .run(runContext());
             assertEquals("absence-1", created.getId());
 
-            Cancel.Output cancelled = Cancel.builder()
+            assertEquals(null, Cancel.builder()
                 .apiKey(Property.ofValue("secret"))
                 .companyId(Property.ofValue("company-1"))
                 .baseUrl(Property.ofValue(server.baseUrl()))
                 .absenceId(Property.ofValue("absence-1"))
                 .comment(Property.ofValue("no longer needed"))
                 .build()
-                .run(runContext());
-            assertEquals("absence-1", cancelled.getAbsenceId());
-            assertTrue(cancelled.getBody().isEmpty());
+                .run(runContext()));
 
             io.kestra.plugin.payfit.contracts.Create.Output contract = io.kestra.plugin.payfit.contracts.Create.builder()
                 .apiKey(Property.ofValue("secret"))
@@ -297,8 +303,7 @@ class PayfitPluginTest {
                 .date(Property.ofValue("202612"))
                 .build()
                 .run(runContext());
-            assertEquals("202612", journal.getDate());
-            assertEquals(1, journal.getEntries().size());
+            assertTrue(journal.getUri() != null);
 
             Download.Output payslip = Download.builder()
                 .apiKey(Property.ofValue("secret"))
@@ -336,8 +341,8 @@ class PayfitPluginTest {
                 .interval(Duration.ofMinutes(5))
                 .fireOnInitial(Property.ofValue(false))
                 .build();
-            Flow flow = Flow.builder().id("payfit").namespace("company.team").revision(1).build();
-            ConditionContext conditionContext = ConditionContext.builder().flow(flow).runContext(runContext()).build();
+            Flow flow = Flow.builder().id("payfit").namespace("company.team").tenantId("main").revision(1).build();
+            ConditionContext conditionContext = ConditionContext.builder().flow(flow).runContext(runContextFactory.of(flow, trigger)).build();
             TriggerContext triggerContext = TriggerContext.builder()
                 .namespace("company.team")
                 .flowId("payfit")
@@ -358,6 +363,7 @@ class PayfitPluginTest {
             assertEquals(2, fetched.getCount());
             assertEquals(null, fetched.getUri());
             assertEquals("a", fetched.getCollaborators().getFirst().getId());
+            assertEquals(1, fetched.getCollaborators().getFirst().getAdditionalProperties().get("extra"));
 
             server.requests.clear();
             List.Output one = listTask(server).fetchType(Property.ofValue(io.kestra.core.models.tasks.common.FetchType.FETCH_ONE)).build().run(runContext());
@@ -427,6 +433,98 @@ class PayfitPluginTest {
             String persisted = String.valueOf(runContext.namespaceKv("company.team").getValue(key).orElseThrow());
             assertTrue(persisted.contains("a"));
             assertTrue(persisted.contains("b"));
+        }
+    }
+
+    @Test
+    void listsGetsAndPollsTheResourcesTheReviewCalledOut() throws Exception {
+        try (PayfitMockServer server = new PayfitMockServer()) {
+            server.handler(request -> switch (request.path()) {
+                case "/companies/company-1/absences" -> PayfitMockServer.Response.json(200, "{\"absences\":[{\"id\":\"absence-1\",\"contractId\":\"contract-1\",\"status\":\"approved\",\"note\":\"doctor\"}]}");
+                case "/companies/company-1/collaborators/col-1" -> PayfitMockServer.Response.json(200, "{\"id\":\"col-1\",\"firstName\":\"Ada\",\"personalEmail\":\"ada@example.com\"}");
+                case "/companies/company-1/contracts/contract-1" -> PayfitMockServer.Response.json(200, "{\"id\":\"contract-1\",\"jobName\":\"Engineer\"}");
+                case "/companies/company-1/contracts" -> PayfitMockServer.Response.json(200, "{\"contracts\":[{\"id\":\"contract-1\",\"status\":\"ACTIVE\"}]}");
+                default -> PayfitMockServer.Response.json(404, "{\"message\":\"missing\"}");
+            });
+
+            io.kestra.plugin.payfit.absences.List.Output absences = io.kestra.plugin.payfit.absences.List.builder()
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .build()
+                .run(runContext());
+            assertEquals(1, absences.getCount());
+            assertEquals("absence-1", absences.getAbsences().getFirst().getId());
+            assertEquals("doctor", absences.getAbsences().getFirst().getAdditionalProperties().get("note"));
+
+            io.kestra.plugin.payfit.collaborators.Get.Output collaborator = io.kestra.plugin.payfit.collaborators.Get.builder()
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .collaboratorId(Property.ofValue("col-1"))
+                .build()
+                .run(runContext());
+            assertEquals("col-1", collaborator.getId());
+            assertEquals("Ada", collaborator.getCollaborator().get("firstName"));
+
+            io.kestra.plugin.payfit.contracts.Get.Output contract = io.kestra.plugin.payfit.contracts.Get.builder()
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .contractId(Property.ofValue("contract-1"))
+                .build()
+                .run(runContext());
+            assertEquals("contract-1", contract.getId());
+            assertEquals("Engineer", contract.getContract().get("jobName"));
+
+            io.kestra.plugin.payfit.contracts.List.Output contracts = io.kestra.plugin.payfit.contracts.List.builder()
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .build()
+                .run(runContext());
+            assertEquals(1, contracts.getCount());
+            assertEquals("contract-1", contracts.getContracts().getFirst().getId());
+        }
+    }
+
+    @Test
+    void absenceTriggerFiresOnlyTheAbsencesThatMatchOn() throws Exception {
+        try (PayfitMockServer server = new PayfitMockServer()) {
+            java.util.concurrent.atomic.AtomicInteger generation = new java.util.concurrent.atomic.AtomicInteger();
+            server.handler(request -> generation.get() == 0
+                ? PayfitMockServer.Response.json(200, "{\"absences\":[{\"id\":\"absence-1\",\"status\":\"approved\"}]}")
+                : PayfitMockServer.Response.json(200, "{\"absences\":[{\"id\":\"absence-1\",\"status\":\"approved\"},{\"id\":\"absence-2\",\"status\":\"approved\",\"comment\":\"new\"}]}"));
+            io.kestra.plugin.payfit.absences.Trigger trigger = io.kestra.plugin.payfit.absences.Trigger.builder()
+                .id("absences")
+                .type(io.kestra.plugin.payfit.absences.Trigger.class.getName())
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .interval(Duration.ofMinutes(5))
+                .fireOnInitial(Property.ofValue(false))
+                .build();
+            Flow flow = Flow.builder().id("payfit").namespace("company.team").tenantId("main").revision(1).build();
+            RunContext runContext = runContextFactory.of(flow, trigger);
+            ConditionContext conditionContext = ConditionContext.builder().flow(flow).runContext(runContext).build();
+            TriggerContext triggerContext = TriggerContext.builder()
+                .namespace("company.team")
+                .flowId("payfit")
+                .triggerId("absences")
+                .date(ZonedDateTime.now())
+                .build();
+
+            assertTrue(trigger.evaluate(conditionContext, triggerContext).isEmpty());
+            generation.incrementAndGet();
+            java.lang.reflect.Field executionId = io.kestra.core.runners.DefaultRunContext.class.getDeclaredField("triggerExecutionId");
+            executionId.setAccessible(true);
+            executionId.set(runContext, "absence-exec");
+            var execution = trigger.evaluate(conditionContext, triggerContext).orElseThrow();
+            assertEquals(1, execution.getTrigger().getVariables().get("count"));
+            assertEquals(null, execution.getTrigger().getVariables().get("uri"));
+            assertTrue(execution.getTrigger().getVariables().get("absences").toString().contains("absence-2"));
+            assertTrue(execution.getTrigger().getVariables().get("absences").toString().contains("new"));
+            assertFalse(execution.getTrigger().getVariables().get("absences").toString().contains("absence-1"));
         }
     }
 
