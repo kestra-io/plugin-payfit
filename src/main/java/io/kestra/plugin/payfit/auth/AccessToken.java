@@ -10,6 +10,7 @@ import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.RunnableTask;
 import io.kestra.core.models.tasks.Task;
+import io.kestra.core.models.tasks.common.EncryptedString;
 import io.kestra.core.runners.RunContext;
 import io.kestra.plugin.payfit.client.JsonBodies;
 import io.kestra.plugin.payfit.client.PayfitClient;
@@ -116,7 +117,7 @@ public class AccessToken extends Task implements RunnableTask<AccessToken.Output
             String accessToken = body.get("access_token") == null ? null : body.get("access_token").toString();
             PayfitValidators.requiredText(accessToken, "access_token");
             return Output.builder()
-                .accessToken(accessToken)
+                .accessToken(EncryptedString.from(accessToken, runContext))
                 .tokenType(body.get("token_type") == null ? null : body.get("token_type").toString())
                 .scope(body.get("scope") == null ? null : body.get("scope").toString())
                 .companyId(body.get("company_id") == null ? JsonBodies.firstId(body) : body.get("company_id").toString())
@@ -128,8 +129,8 @@ public class AccessToken extends Task implements RunnableTask<AccessToken.Output
     @Builder
     @Getter
     public static class Output implements io.kestra.core.models.tasks.Output {
-        @Schema(title = "Access token to send as a bearer token on Partner API requests")
-        private final String accessToken;
+        @Schema(title = "Access token to send as a bearer token on Partner API requests, encrypted in the execution outputs")
+        private final EncryptedString accessToken;
 
         @Schema(title = "Token type")
         private final String tokenType;

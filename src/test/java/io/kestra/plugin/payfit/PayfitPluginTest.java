@@ -12,6 +12,7 @@ import io.kestra.core.junit.annotations.KestraTest;
 import io.kestra.core.models.conditions.ConditionContext;
 import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.property.Property;
+import io.kestra.core.models.tasks.common.EncryptedString;
 import io.kestra.core.models.triggers.TriggerContext;
 import io.kestra.core.runners.RunContext;
 import io.kestra.core.runners.RunContextFactory;
@@ -234,7 +235,8 @@ class PayfitPluginTest {
                 .build()
                 .run(runContext());
 
-            assertEquals("access", output.getAccessToken());
+            assertEquals(EncryptedString.TYPE, output.getAccessToken().getType());
+            assertEquals("access", runContext().decrypt(output.getAccessToken().getValue()));
             assertEquals(3600L, output.getExpiresIn());
         }
     }
