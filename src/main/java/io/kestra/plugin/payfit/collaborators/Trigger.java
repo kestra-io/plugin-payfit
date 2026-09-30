@@ -135,9 +135,10 @@ public class Trigger extends AbstractPayfitTrigger implements TriggerOutput<Trig
 
     static String version(Map<String, Object> item) {
         try {
-            return VERSION_MAPPER.writeValueAsString(item);
+            byte[] json = VERSION_MAPPER.writeValueAsBytes(item);
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(json));
         } catch (Exception e) {
-            return String.valueOf(item);
+            throw new io.kestra.plugin.payfit.client.PayfitException("Could not compute the PayFit collaborator version", e);
         }
     }
 
