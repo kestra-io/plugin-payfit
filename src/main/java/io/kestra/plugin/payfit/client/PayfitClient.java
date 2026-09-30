@@ -227,7 +227,7 @@ public final class PayfitClient implements AutoCloseable {
 
     private JsonNode send(String method, URI uri, Object body, Map<String, String> headers, boolean bearer, boolean formEncoded) {
         try {
-            String raw = this.<String>retry().runRetryIf(this::retryable, () -> execute(method, uri, body, headers, bearer, formEncoded));
+            String raw = this.<String>retry().runRetryIf(t -> retryable(method, t), () -> execute(method, uri, body, headers, bearer, formEncoded));
             if (raw == null || raw.isBlank()) {
                 return mapper.createObjectNode();
             }
@@ -370,6 +370,18 @@ public final class PayfitClient implements AutoCloseable {
                 .build(),
             runContext.logger()
         );
+    }
+
+    private boolean retryable(String method, Throwable throwable) {
+        if ("POST".equals(method)) {
+            // POST is not idempotent: only retry when PayFit rejected the request before handling it.
+            HttpClientResponseException response = find(throwable, HttpClientResponseException.class);
+            return response != null
+                && response.getResponse() != null
+                && response.getResponse().getStatus() != null
+                && response.getResponse().getStatus().getCode() == 429;
+        }
+        return retryable(throwable);
     }
 
     private boolean retryable(Throwable throwable) {

@@ -130,6 +130,50 @@ class PayfitPluginTest {
     }
 
     @Test
+    void postRetries429ButNotServerErrors() throws Exception {
+        try (PayfitMockServer server = new PayfitMockServer()) {
+            AtomicInteger calls = new AtomicInteger();
+            server.handler(request -> {
+                assertEquals("POST", request.method());
+                return calls.getAndIncrement() == 0
+                    ? PayfitMockServer.Response.json(500, "{\"message\":\"unavailable\"}")
+                    : PayfitMockServer.Response.json(201, "{\"id\":\"absence-1\"}");
+            });
+            assertThrows(PayfitException.class, () -> absence(server).run(runContext()));
+            assertEquals(1, calls.get());
+
+            calls.set(0);
+            server.requests.clear();
+            server.handler(request -> calls.getAndIncrement() == 0
+                ? PayfitMockServer.Response.json(429, "{\"message\":\"slow down\"}")
+                : PayfitMockServer.Response.json(201, "{\"id\":\"absence-1\"}"));
+            assertEquals("absence-1", absence(server).run(runContext()).getId());
+            assertEquals(2, calls.get());
+        }
+    }
+
+    @Test
+    void deleteRetriesServerErrors() throws Exception {
+        try (PayfitMockServer server = new PayfitMockServer()) {
+            AtomicInteger calls = new AtomicInteger();
+            server.handler(request -> {
+                assertEquals("DELETE", request.method());
+                return calls.getAndIncrement() == 0
+                    ? PayfitMockServer.Response.json(500, "{\"message\":\"unavailable\"}")
+                    : new PayfitMockServer.Response(204, "", "application/json");
+            });
+            assertEquals(null, Cancel.builder()
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .absenceId(Property.ofValue("absence-1"))
+                .build()
+                .run(runContext()));
+            assertEquals(2, calls.get());
+        }
+    }
+
+    @Test
     void resolvesCompanyIdFromIntrospectionAndRejectsInactiveTokens() throws Exception {
         try (PayfitMockServer server = new PayfitMockServer()) {
             server.handler(request -> {
@@ -526,6 +570,18 @@ class PayfitPluginTest {
             assertTrue(execution.getTrigger().getVariables().get("absences").toString().contains("new"));
             assertFalse(execution.getTrigger().getVariables().get("absences").toString().contains("absence-1"));
         }
+    }
+
+    private Create absence(PayfitMockServer server) {
+        return Create.builder()
+            .apiKey(Property.ofValue("secret"))
+            .companyId(Property.ofValue("company-1"))
+            .baseUrl(Property.ofValue(server.baseUrl()))
+            .contractId(Property.ofValue("contract-1"))
+            .absenceType(Property.ofValue("fr_conges_payes"))
+            .startDate(Property.ofValue("2026-12-24"))
+            .endDate(Property.ofValue("2026-12-26"))
+            .build();
     }
 
     private List.ListBuilder<?, ?> listTask(PayfitMockServer server) {
