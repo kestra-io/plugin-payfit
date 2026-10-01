@@ -24,10 +24,26 @@ public final class TriggerState {
             return false;
         }
         // readState swallows parse errors and returns an empty map; fail here instead of firing every resource.
-        JacksonMapper.ofJson().readValue(
-            (byte[]) kv.get().value(),
-            new TypeReference<List<StatefulTriggerService.Entry>>() {}
-        );
+        Object value = kv.get().value();
+        if (!(value instanceof byte[] bytes)) {
+            throw new PayfitException(unreadableSnapshot(key));
+        }
+        List<StatefulTriggerService.Entry> entries;
+        try {
+            entries = JacksonMapper.ofJson().readValue(
+                bytes,
+                new TypeReference<List<StatefulTriggerService.Entry>>() {}
+            );
+        } catch (Exception e) {
+            throw new PayfitException(unreadableSnapshot(key), e);
+        }
+        if (entries == null) {
+            throw new PayfitException(unreadableSnapshot(key));
+        }
         return true;
+    }
+
+    private static String unreadableSnapshot(String key) {
+        return "Could not read the PayFit trigger snapshot stored at '" + key + "'. Check this state key, then delete the KV entry so the next poll can record a new snapshot.";
     }
 }

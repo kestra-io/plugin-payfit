@@ -16,7 +16,6 @@ import io.kestra.core.models.triggers.TriggerOutput;
 import io.kestra.core.queues.QueueException;
 import io.kestra.core.runners.RunContext;
 import io.kestra.core.serializers.JacksonMapper;
-import io.kestra.core.validations.WebhookValidation;
 import io.kestra.plugin.core.trigger.AbstractWebhookTrigger;
 import io.kestra.plugin.core.trigger.WebhookContext;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -34,7 +33,6 @@ import reactor.core.publisher.Mono;
 @EqualsAndHashCode
 @Getter
 @NoArgsConstructor
-@WebhookValidation
 @Schema(
     title = "Receive PayFit webhook events",
     description = "Starts an execution when PayFit posts a Svix webhook. `secret` is the Svix signing secret (`whsec_...`) and is required. The request must include `svix-id`, `svix-timestamp`, and `svix-signature`, and the timestamp must be within five minutes. Events whose `type` does not match `eventType` return HTTP 204."

@@ -18,8 +18,6 @@ import io.kestra.plugin.payfit.client.PayfitConnections;
 import io.kestra.plugin.payfit.client.PayfitValidators;
 import io.kestra.plugin.payfit.client.StoredDocuments;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -76,8 +74,6 @@ public class List extends AbstractPayfitTask implements RunnableTask<List.Output
     private Property<String> endDate;
 
     @Schema(title = "Page size, from 1 to 50")
-    @Min(1)
-    @Max(50)
     @PluginProperty(group = "processing")
     private Property<Integer> maxResults;
 

@@ -7,7 +7,7 @@ Orchestrate PayFit HR and payroll data from Kestra. The plugin calls the [PayFit
 Customer API keys and partner access tokens are both sent as `Authorization: Bearer <token>`.
 
 - Create a customer key in the PayFit app at **Integrations → API Access** and store it in a Kestra secret. A key can only read the company that issued it.
-- Partners exchange the OAuth authorization code with `auth.AccessToken` (`POST /token`). The access token is valid for the company that approved the integration. The task returns it as an encrypted output, so the bearer token is not stored in plain text on the execution.
+- Partners exchange the OAuth authorization code with `auth.AccessToken` (`POST /token`). The access token is valid for the company that approved the integration. The task returns it as an encrypted output, so the bearer token is not stored in plain text on the execution. Kestra encrypts that output only when `kestra.encryption.secret-key` is configured. Without that key, the execution output contains the token in clear text.
 - Leave `companyId` empty to resolve it from `POST /introspect`. `auth.Introspect` returns the company id, scopes, and whether the token is active.
 
 Scopes follow the PayFit documentation. Collaborator reads need `collaborators:read`, collaborator and contract creation need `collaborators:write`, contract reads need `contracts:read`, payslips need `contracts:payslips:read`, accounting needs `accounting:read`, and absences need `time:read` or `time:write`.

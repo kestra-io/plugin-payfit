@@ -32,7 +32,7 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 @Schema(
     title = "Exchange a PayFit authorization code",
-    description = "Exchanges an OAuth 2.0 authorization code at `POST https://oauth.payfit.com/token` using `application/x-www-form-urlencoded`. No API key is sent. The access token is valid for the company that approved the integration."
+    description = "Exchanges an OAuth 2.0 authorization code at `POST https://oauth.payfit.com/token` using `application/x-www-form-urlencoded`. No API key is sent. The access token is valid for the company that approved the integration. Kestra encrypts the access token output only when `kestra.encryption.secret-key` is configured. Without that key, the execution output contains the token in clear text."
 )
 @Plugin(
     examples = {

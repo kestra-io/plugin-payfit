@@ -15,8 +15,6 @@ import io.kestra.plugin.payfit.client.PayfitClient;
 import io.kestra.plugin.payfit.client.PayfitConnections;
 import io.kestra.plugin.payfit.client.PayfitValidators;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
@@ -88,8 +86,6 @@ public class Create extends AbstractPayfitTask implements RunnableTask<Create.Ou
     private Property<String> gender;
 
     @Schema(title = "Number of children, from 0 to 20")
-    @Min(0)
-    @Max(20)
     @PluginProperty(group = "main")
     private Property<Integer> numberOfChildren;
 
