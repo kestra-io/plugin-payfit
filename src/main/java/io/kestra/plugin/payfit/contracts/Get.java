@@ -58,8 +58,9 @@ public class Get extends AbstractPayfitTask implements RunnableTask<Get.Output> 
         String rContractId = PayfitConnections.required(runContext, this.contractId, "contractId");
         try (PayfitClient client = client(runContext)) {
             Map<String, Object> body = client.get(client.companyPath("/contracts/" + PayfitClient.pathSegment(rContractId)), Map.of());
+            Object rawId = body.get("contractId") != null ? body.get("contractId") : body.get("id");
             return Output.builder()
-                .id(body.get("id") == null ? rContractId : body.get("id").toString())
+                .id(rawId == null ? rContractId : rawId.toString())
                 .contract(body)
                 .build();
         }

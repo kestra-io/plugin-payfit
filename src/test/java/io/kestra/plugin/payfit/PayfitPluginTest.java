@@ -276,7 +276,7 @@ class PayfitPluginTest {
                     assertTrue(request.body().contains("\"personalEmail\":\"ada@example.com\""));
                     yield PayfitMockServer.Response.json(201, "{\"collaboratorId\":\"col-9\"}");
                 }
-                case "/companies/company-1/collaborators/col-1/payslips" -> PayfitMockServer.Response.json(200, "{\"payslips\":[{\"id\":\"slip-1\"}]}");
+                case "/companies/company-1/collaborators/col-1/payslips" -> PayfitMockServer.Response.json(200, "{\"payslips\":[{\"payslipId\":\"slip-1\",\"contractId\":\"contract-1\",\"year\":\"2026\",\"month\":\"12\",\"payslipUrl\":\"/payslips/slip-1\"}]}");
                 case "/companies/company-1/accounting-v2" -> {
                     assertTrue(request.query().contains("date=202612"));
                     yield PayfitMockServer.Response.json(200, "[{\"operationDate\":\"2026-12-31\"}]");
@@ -350,6 +350,9 @@ class PayfitPluginTest {
                 .build()
                 .run(runContext());
             assertEquals(1, payslips.getCount());
+            assertEquals("slip-1", payslips.getPayslips().getFirst().getId());
+            assertEquals("contract-1", payslips.getPayslips().getFirst().getContractId());
+            assertEquals("2026", payslips.getPayslips().getFirst().getYear());
 
             Export.Output journal = Export.builder()
                 .apiKey(Property.ofValue("secret"))
@@ -495,10 +498,10 @@ class PayfitPluginTest {
     void listsGetsAndPollsTheResourcesTheReviewCalledOut() throws Exception {
         try (PayfitMockServer server = new PayfitMockServer()) {
             server.handler(request -> switch (request.path()) {
-                case "/companies/company-1/absences" -> PayfitMockServer.Response.json(200, "{\"absences\":[{\"id\":\"absence-1\",\"contractId\":\"contract-1\",\"status\":\"approved\",\"note\":\"doctor\"}]}");
+                case "/companies/company-1/absences" -> PayfitMockServer.Response.json(200, "{\"absences\":[{\"id\":\"absence-1\",\"contractId\":\"contract-1\",\"type\":\"fr_conges_payes\",\"status\":\"approved\",\"note\":\"doctor\",\"startDate\":{\"date\":\"2026-07-01\",\"moment\":\"beginning-of-day\"},\"endDate\":{\"date\":\"2026-07-02\",\"moment\":\"end-of-day\"}}]}");
                 case "/companies/company-1/collaborators/col-1" -> PayfitMockServer.Response.json(200, "{\"id\":\"col-1\",\"firstName\":\"Ada\",\"personalEmail\":\"ada@example.com\"}");
-                case "/companies/company-1/contracts/contract-1" -> PayfitMockServer.Response.json(200, "{\"id\":\"contract-1\",\"jobName\":\"Engineer\"}");
-                case "/companies/company-1/contracts" -> PayfitMockServer.Response.json(200, "{\"contracts\":[{\"id\":\"contract-1\",\"status\":\"ACTIVE\"}]}");
+                case "/companies/company-1/contracts/contract-1" -> PayfitMockServer.Response.json(200, "{\"contractId\":\"contract-1\",\"jobName\":\"Engineer\"}");
+                case "/companies/company-1/contracts" -> PayfitMockServer.Response.json(200, "{\"contracts\":[{\"contractId\":\"contract-1\",\"status\":\"ACTIVE\"}]}");
                 default -> PayfitMockServer.Response.json(404, "{\"message\":\"missing\"}");
             });
 
@@ -510,6 +513,12 @@ class PayfitPluginTest {
                 .run(runContext());
             assertEquals(1, absences.getCount());
             assertEquals("absence-1", absences.getAbsences().getFirst().getId());
+            assertEquals("fr_conges_payes", absences.getAbsences().getFirst().getType());
+            assertEquals("approved", absences.getAbsences().getFirst().getStatus());
+            assertEquals("2026-07-01", absences.getAbsences().getFirst().getStartDate().getDate());
+            assertEquals("beginning-of-day", absences.getAbsences().getFirst().getStartDate().getMoment());
+            assertEquals("2026-07-02", absences.getAbsences().getFirst().getEndDate().getDate());
+            assertEquals("end-of-day", absences.getAbsences().getFirst().getEndDate().getMoment());
             assertEquals("doctor", absences.getAbsences().getFirst().getAdditionalProperties().get("note"));
 
             io.kestra.plugin.payfit.collaborators.Get.Output collaborator = io.kestra.plugin.payfit.collaborators.Get.builder()
@@ -530,6 +539,7 @@ class PayfitPluginTest {
                 .build()
                 .run(runContext());
             assertEquals("contract-1", contract.getId());
+            assertEquals("contract-1", contract.getContract().get("contractId"));
             assertEquals("Engineer", contract.getContract().get("jobName"));
 
             io.kestra.plugin.payfit.contracts.List.Output contracts = io.kestra.plugin.payfit.contracts.List.builder()
@@ -548,8 +558,8 @@ class PayfitPluginTest {
         try (PayfitMockServer server = new PayfitMockServer()) {
             java.util.concurrent.atomic.AtomicInteger generation = new java.util.concurrent.atomic.AtomicInteger();
             server.handler(request -> generation.get() == 0
-                ? PayfitMockServer.Response.json(200, "{\"absences\":[{\"id\":\"absence-1\",\"status\":\"approved\"}]}")
-                : PayfitMockServer.Response.json(200, "{\"absences\":[{\"id\":\"absence-1\",\"status\":\"approved\"},{\"id\":\"absence-2\",\"status\":\"approved\",\"comment\":\"new\"}]}"));
+                ? PayfitMockServer.Response.json(200, "{\"absences\":[{\"id\":\"absence-1\",\"contractId\":\"contract-1\",\"type\":\"fr_conges_payes\",\"status\":\"approved\",\"startDate\":{\"date\":\"2026-07-01\",\"moment\":\"beginning-of-day\"},\"endDate\":{\"date\":\"2026-07-01\",\"moment\":\"end-of-day\"}}]}")
+                : PayfitMockServer.Response.json(200, "{\"absences\":[{\"id\":\"absence-1\",\"contractId\":\"contract-1\",\"type\":\"fr_conges_payes\",\"status\":\"approved\",\"startDate\":{\"date\":\"2026-07-01\",\"moment\":\"beginning-of-day\"},\"endDate\":{\"date\":\"2026-07-01\",\"moment\":\"end-of-day\"}},{\"id\":\"absence-2\",\"contractId\":\"contract-1\",\"type\":\"fr_conges_payes\",\"status\":\"approved\",\"comment\":\"new\",\"startDate\":{\"date\":\"2026-08-01\",\"moment\":\"beginning-of-day\"},\"endDate\":{\"date\":\"2026-08-02\",\"moment\":\"end-of-day\"}}]}"));
             io.kestra.plugin.payfit.absences.Trigger trigger = io.kestra.plugin.payfit.absences.Trigger.builder()
                 .id("absences")
                 .type(io.kestra.plugin.payfit.absences.Trigger.class.getName())
@@ -577,9 +587,13 @@ class PayfitPluginTest {
             var execution = trigger.evaluate(conditionContext, triggerContext).orElseThrow();
             assertEquals(1, execution.getTrigger().getVariables().get("count"));
             assertEquals(null, execution.getTrigger().getVariables().get("uri"));
-            assertTrue(execution.getTrigger().getVariables().get("absences").toString().contains("absence-2"));
-            assertTrue(execution.getTrigger().getVariables().get("absences").toString().contains("new"));
-            assertFalse(execution.getTrigger().getVariables().get("absences").toString().contains("absence-1"));
+            String fired = execution.getTrigger().getVariables().get("absences").toString();
+            assertTrue(fired.contains("absence-2"));
+            assertTrue(fired.contains("fr_conges_payes"));
+            assertTrue(fired.contains("approved"));
+            assertTrue(fired.contains("beginning-of-day"));
+            assertTrue(fired.contains("new"));
+            assertFalse(fired.contains("absence-1"));
         }
     }
 
@@ -587,7 +601,7 @@ class PayfitPluginTest {
     void unreadableTriggerSnapshotFailsWithoutOverwrite() throws Exception {
         try (PayfitMockServer server = new PayfitMockServer()) {
             server.handler(request -> request.path().contains("/absences")
-                ? PayfitMockServer.Response.json(200, "{\"absences\":[{\"id\":\"absence-1\",\"status\":\"approved\"}]}")
+                ? PayfitMockServer.Response.json(200, "{\"absences\":[{\"id\":\"absence-1\",\"contractId\":\"contract-1\",\"type\":\"fr_conges_payes\",\"status\":\"approved\",\"startDate\":{\"date\":\"2026-07-01\",\"moment\":\"beginning-of-day\"},\"endDate\":{\"date\":\"2026-07-02\",\"moment\":\"end-of-day\"}}]}")
                 : PayfitMockServer.Response.json(200, "{\"collaborators\":[{\"id\":\"a\"}]}"));
             Flow flow = Flow.builder().id("snapshot").namespace("company.snapshot").tenantId("main").revision(1).build();
 

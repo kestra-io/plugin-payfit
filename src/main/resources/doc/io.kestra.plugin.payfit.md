@@ -10,7 +10,7 @@ Customer API keys and partner access tokens are both sent as `Authorization: Bea
 - Partners exchange the OAuth authorization code with `auth.AccessToken` (`POST /token`). The access token is valid for the company that approved the integration. The task returns it as an encrypted output, so the bearer token is not stored in plain text on the execution. Kestra encrypts that output only when `kestra.encryption.secret-key` is configured. Without that key, the execution output contains the token in clear text.
 - Leave `companyId` empty to resolve it from `POST /introspect`. `auth.Introspect` returns the company id, scopes, and whether the token is active.
 
-Scopes follow the PayFit documentation. Collaborator reads need `collaborators:read`, collaborator and contract creation need `collaborators:write`, contract reads need `contracts:read`, payslips need `contracts:payslips:read`, accounting needs `accounting:read`, and absences need `time:read` or `time:write`.
+Scopes follow the PayFit documentation. Collaborator reads need `collaborators:read`, collaborator creation needs `collaborators:write`, and contract creation needs `collaborators:contracts:write`. Contract reads need `contracts:read`, payslips need `contracts:payslips:read`, accounting needs `accounting:read`, and absences need `time:read` or `time:write`.
 
 ## Tasks
 
