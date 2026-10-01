@@ -1,11 +1,13 @@
 package io.kestra.plugin.payfit;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import io.kestra.core.exceptions.InvalidTriggerConfigurationException;
 import io.kestra.core.junit.annotations.KestraTest;
@@ -14,20 +16,24 @@ import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.common.EncryptedString;
 import io.kestra.core.models.triggers.TriggerContext;
+import io.kestra.core.models.validations.ModelValidator;
 import io.kestra.core.runners.RunContext;
 import io.kestra.core.runners.RunContextFactory;
+import io.kestra.core.storages.kv.KVValueAndMetadata;
 import io.kestra.plugin.payfit.absences.Cancel;
 import io.kestra.plugin.payfit.absences.Create;
 import io.kestra.plugin.payfit.accounting.Export;
 import io.kestra.plugin.payfit.auth.AccessToken;
 import io.kestra.plugin.payfit.auth.Introspect;
 import io.kestra.plugin.payfit.client.PayfitException;
+import io.kestra.plugin.payfit.client.TriggerState;
 import io.kestra.plugin.payfit.collaborators.List;
 import io.kestra.plugin.payfit.company.Get;
 import io.kestra.plugin.payfit.payslips.Download;
 
 import jakarta.inject.Inject;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -37,6 +43,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PayfitPluginTest {
     @Inject
     private RunContextFactory runContextFactory;
+
+    @Inject
+    private ModelValidator modelValidator;
 
     @Test
     void followsRootAndMetaPageTokens() throws Exception {
@@ -572,6 +581,149 @@ class PayfitPluginTest {
             assertTrue(execution.getTrigger().getVariables().get("absences").toString().contains("new"));
             assertFalse(execution.getTrigger().getVariables().get("absences").toString().contains("absence-1"));
         }
+    }
+
+    @Test
+    void unreadableTriggerSnapshotFailsWithoutOverwrite() throws Exception {
+        try (PayfitMockServer server = new PayfitMockServer()) {
+            server.handler(request -> request.path().contains("/absences")
+                ? PayfitMockServer.Response.json(200, "{\"absences\":[{\"id\":\"absence-1\",\"status\":\"approved\"}]}")
+                : PayfitMockServer.Response.json(200, "{\"collaborators\":[{\"id\":\"a\"}]}"));
+            Flow flow = Flow.builder().id("snapshot").namespace("company.snapshot").tenantId("main").revision(1).build();
+
+            io.kestra.plugin.payfit.collaborators.Trigger collaborators = io.kestra.plugin.payfit.collaborators.Trigger.builder()
+                .id("collaborators")
+                .type(io.kestra.plugin.payfit.collaborators.Trigger.class.getName())
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .interval(Duration.ofMinutes(5))
+                .fireOnInitial(Property.ofValue(false))
+                .build();
+            RunContext collaboratorContext = runContextFactory.of(flow, collaborators);
+            String collaboratorKey = io.kestra.core.models.triggers.StatefulTriggerService.defaultKey("company.snapshot", "snapshot", "collaborators");
+            ConditionContext collaboratorConditions = ConditionContext.builder().flow(flow).runContext(collaboratorContext).build();
+            TriggerContext collaboratorTriggerContext = TriggerContext.builder()
+                .namespace("company.snapshot")
+                .flowId("snapshot")
+                .triggerId("collaborators")
+                .date(ZonedDateTime.now())
+                .build();
+            assertUnreadableSnapshot(collaboratorContext, collaboratorKey, () -> collaborators.evaluate(collaboratorConditions, collaboratorTriggerContext));
+            assertUnreadableSnapshot(
+                collaboratorContext,
+                collaboratorKey,
+                "not-json".getBytes(StandardCharsets.UTF_8),
+                () -> collaborators.evaluate(collaboratorConditions, collaboratorTriggerContext)
+            );
+            assertFalse(TriggerState.initialized(collaboratorContext, collaboratorKey));
+            assertTrue(collaborators.evaluate(collaboratorConditions, collaboratorTriggerContext).isEmpty());
+            assertTrue(TriggerState.initialized(collaboratorContext, collaboratorKey));
+
+            io.kestra.plugin.payfit.absences.Trigger absences = io.kestra.plugin.payfit.absences.Trigger.builder()
+                .id("absences")
+                .type(io.kestra.plugin.payfit.absences.Trigger.class.getName())
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .interval(Duration.ofMinutes(5))
+                .fireOnInitial(Property.ofValue(false))
+                .build();
+            RunContext absenceContext = runContextFactory.of(flow, absences);
+            String absenceKey = io.kestra.core.models.triggers.StatefulTriggerService.defaultKey("company.snapshot", "snapshot", "absences");
+            ConditionContext absenceConditions = ConditionContext.builder().flow(flow).runContext(absenceContext).build();
+            TriggerContext absenceTriggerContext = TriggerContext.builder()
+                .namespace("company.snapshot")
+                .flowId("snapshot")
+                .triggerId("absences")
+                .date(ZonedDateTime.now())
+                .build();
+            assertUnreadableSnapshot(absenceContext, absenceKey, () -> absences.evaluate(absenceConditions, absenceTriggerContext));
+            assertFalse(TriggerState.initialized(absenceContext, absenceKey));
+            assertTrue(absences.evaluate(absenceConditions, absenceTriggerContext).isEmpty());
+            assertTrue(TriggerState.initialized(absenceContext, absenceKey));
+        }
+    }
+
+    @Test
+    void tasksTheQaCouldNotSaveValidate() {
+        modelValidator.validate(io.kestra.plugin.payfit.collaborators.Create.builder()
+            .id("collaborator")
+            .type(io.kestra.plugin.payfit.collaborators.Create.class.getName())
+            .apiKey(Property.ofValue("{{ secret('PAYFIT_API_KEY') }}"))
+            .firstName(Property.ofValue("Ada"))
+            .lastName(Property.ofValue("Lovelace"))
+            .personalEmail(Property.ofValue("ada@example.com"))
+            .numberOfChildren(Property.ofValue(2))
+            .build());
+        modelValidator.validate(io.kestra.plugin.payfit.absences.List.builder()
+            .id("absences")
+            .type(io.kestra.plugin.payfit.absences.List.class.getName())
+            .apiKey(Property.ofValue("{{ secret('PAYFIT_API_KEY') }}"))
+            .maxResults(Property.ofValue(10))
+            .build());
+        io.kestra.plugin.payfit.webhook.Webhook webhook = io.kestra.plugin.payfit.webhook.Webhook.builder()
+            .id("payfit")
+            .type(io.kestra.plugin.payfit.webhook.Webhook.class.getName())
+            .key("webhook-key")
+            .secret(Property.ofValue("{{ secret('PAYFIT_SVIX_SECRET') }}"))
+            .build();
+        modelValidator.validate(webhook);
+        modelValidator.validate(Flow.builder()
+            .id("payfit_onboarding")
+            .namespace("company.team")
+            .tasks(java.util.List.of(io.kestra.plugin.payfit.collaborators.Create.builder()
+                .id("collaborator")
+                .type(io.kestra.plugin.payfit.collaborators.Create.class.getName())
+                .apiKey(Property.ofValue("{{ secret('PAYFIT_API_KEY') }}"))
+                .firstName(Property.ofValue("Ada"))
+                .lastName(Property.ofValue("Lovelace"))
+                .personalEmail(Property.ofValue("ada@example.com"))
+                .build()))
+            .build());
+        modelValidator.validate(Flow.builder()
+            .id("payfit_absences")
+            .namespace("company.team")
+            .tasks(java.util.List.of(io.kestra.plugin.payfit.absences.List.builder()
+                .id("absences")
+                .type(io.kestra.plugin.payfit.absences.List.class.getName())
+                .apiKey(Property.ofValue("{{ secret('PAYFIT_API_KEY') }}"))
+                .maxResults(Property.ofValue(10))
+                .build()))
+            .build());
+        modelValidator.validate(Flow.builder()
+            .id("payfit_webhook")
+            .namespace("company.team")
+            .tasks(java.util.List.of(Introspect.builder()
+                .id("introspect")
+                .type(Introspect.class.getName())
+                .apiKey(Property.ofValue("{{ secret('PAYFIT_API_KEY') }}"))
+                .build()))
+            .triggers(java.util.List.of(webhook))
+            .build());
+    }
+
+    private void assertUnreadableSnapshot(RunContext runContext, String key, Executable poll) throws Exception {
+        assertUnreadableSnapshot(runContext, key, "not-json", poll);
+    }
+
+    private void assertUnreadableSnapshot(RunContext runContext, String key, Object stored, Executable poll) throws Exception {
+        var kv = runContext.namespaceKv(runContext.flowInfo().namespace());
+        kv.put(key, new KVValueAndMetadata(null, stored));
+        Object before = kv.getValue(key).orElseThrow().value();
+        PayfitException failure = assertThrows(PayfitException.class, poll);
+        assertTrue(failure.getMessage().contains(key), failure.getMessage());
+        assertTrue(failure.getMessage().contains("delete the KV entry"), failure.getMessage());
+        assertSameKvValue(before, kv.getValue(key).orElseThrow().value());
+        kv.delete(key);
+    }
+
+    private static void assertSameKvValue(Object before, Object after) {
+        if (before instanceof byte[] left && after instanceof byte[] right) {
+            assertArrayEquals(left, right);
+            return;
+        }
+        assertEquals(before, after);
     }
 
     private Create absence(PayfitMockServer server) {
