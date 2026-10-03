@@ -2,6 +2,7 @@ package io.kestra.plugin.payfit;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,6 +30,7 @@ import io.kestra.plugin.payfit.client.PayfitException;
 import io.kestra.plugin.payfit.client.TriggerState;
 import io.kestra.plugin.payfit.collaborators.List;
 import io.kestra.plugin.payfit.company.Get;
+import io.kestra.plugin.payfit.company.GetPayrollStatus;
 import io.kestra.plugin.payfit.payslips.Download;
 
 import jakarta.inject.Inject;
@@ -378,6 +380,54 @@ class PayfitPluginTest {
     }
 
     @Test
+    void fetchesPayrollStatusForGivenPeriod() throws Exception {
+        try (PayfitMockServer server = new PayfitMockServer()) {
+            server.handler(request -> {
+                assertEquals("GET", request.method());
+                assertEquals("/companies/company-1/payroll-status", request.path());
+                assertTrue(request.query().contains("date=202610"));
+                return PayfitMockServer.Response.json(200, "{\"status\":\"completed\",\"executionEndDate\":\"2026-10-25T14:30:00.000Z\"}");
+            });
+
+            GetPayrollStatus.Output completed = GetPayrollStatus.builder()
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .date(Property.ofValue("202610"))
+                .build()
+                .run(runContext());
+
+            assertEquals("completed", completed.getStatus());
+            assertTrue(completed.getCompleted());
+            assertEquals(Instant.parse("2026-10-25T14:30:00.000Z"), completed.getExecutionEndDate());
+            assertEquals("completed", completed.getPayrollStatus().getStatus());
+
+            server.requests.clear();
+            server.handler(request -> PayfitMockServer.Response.json(200, "{\"status\":\"not_completed\",\"executionEndDate\":null}"));
+
+            GetPayrollStatus.Output notCompleted = GetPayrollStatus.builder()
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .date(Property.ofValue("202610"))
+                .build()
+                .run(runContext());
+
+            assertEquals("not_completed", notCompleted.getStatus());
+            assertFalse(notCompleted.getCompleted());
+            assertEquals(null, notCompleted.getExecutionEndDate());
+
+            assertThrows(IllegalArgumentException.class, () -> GetPayrollStatus.builder()
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .date(Property.ofValue("202613"))
+                .build()
+                .run(runContext()));
+        }
+    }
+
+    @Test
     void collaboratorTriggerRecordsTheInitialSnapshot() throws Exception {
         try (PayfitMockServer server = new PayfitMockServer()) {
             server.handler(request -> {
@@ -675,6 +725,12 @@ class PayfitPluginTest {
             .type(io.kestra.plugin.payfit.absences.List.class.getName())
             .apiKey(Property.ofValue("{{ secret('PAYFIT_API_KEY') }}"))
             .maxResults(Property.ofValue(10))
+            .build());
+        modelValidator.validate(GetPayrollStatus.builder()
+            .id("payroll_status")
+            .type(GetPayrollStatus.class.getName())
+            .apiKey(Property.ofValue("{{ secret('PAYFIT_API_KEY') }}"))
+            .date(Property.ofValue("202610"))
             .build());
         io.kestra.plugin.payfit.webhook.Webhook webhook = io.kestra.plugin.payfit.webhook.Webhook.builder()
             .id("payfit")
