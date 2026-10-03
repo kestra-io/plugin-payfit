@@ -42,7 +42,7 @@ Sync PayFit company, collaborator, contract, absence, accounting, and payslip da
 ## Why
 
 - HR and payroll steps otherwise sit outside the workflow that hires, approves leave, and closes the month.
-- The same flow can create a collaborator, initialize a contract, export the accounting journal, and download a payslip, with secrets and retries handled by Kestra.
+- The same flow can create a collaborator, initialize a contract, check monthly payroll status, export the accounting journal, and download a payslip, with secrets and retries handled by Kestra.
 - Polling triggers and the webhook trigger start downstream work when PayFit data changes instead of relying on a separate scheduler.
 
 ## What

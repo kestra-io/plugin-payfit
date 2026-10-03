@@ -3,7 +3,7 @@
 ## What
 
 - Calls the PayFit Partner API from `io.kestra.plugin.payfit`.
-- Includes `auth.Introspect`, `auth.AccessToken`, `company.Get`, collaborator and contract list/get/create tasks, absence list/create/cancel tasks, `accounting.Export`, `payslips.Download`, collaborator and absence polling triggers, and `webhook.Webhook`.
+- Includes `auth.Introspect`, `auth.AccessToken`, `company.Get`, `company.GetPayrollStatus`, collaborator and contract list/get/create tasks, absence list/create/cancel tasks, `accounting.Export`, `payslips.Download`, collaborator and absence polling triggers, and `webhook.Webhook`.
 
 ## Why
 
