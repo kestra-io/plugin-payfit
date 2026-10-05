@@ -31,7 +31,9 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 @Schema(
     title = "Get PayFit payroll status",
-    description = "Fetches `GET /companies/{companyId}/payroll-status?date=YYYYMM`. Returns the payroll status (`completed` or `not_completed`) and execution end timestamp for a given pay period. No scope is required beyond a valid company token."
+    description = """
+        Fetches `GET /companies/{companyId}/payroll-status?date=YYYYMM`. Returns the payroll status (`completed` or `not_completed`) and execution end timestamp for a given pay period. No scope is required beyond a valid company token.
+        """
 )
 @Plugin(
     examples = {
