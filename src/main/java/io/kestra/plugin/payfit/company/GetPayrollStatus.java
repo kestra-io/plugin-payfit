@@ -1,6 +1,7 @@
 package io.kestra.plugin.payfit.company;
 
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.Map;
 
 import io.kestra.core.models.annotations.Example;
@@ -30,7 +31,7 @@ import lombok.experimental.SuperBuilder;
 @NoArgsConstructor
 @Schema(
     title = "Get PayFit payroll status",
-    description = "Fetches `GET /companies/{companyId}/payroll-status?date=YYYYMM`. Returns the payroll status ('completed' or 'not_completed') and execution end timestamp for a given pay period. No scope is required beyond a valid company token."
+    description = "Fetches `GET /companies/{companyId}/payroll-status?date=YYYYMM`. Returns the payroll status (`completed` or `not_completed`) and execution end timestamp for a given pay period. No scope is required beyond a valid company token."
 )
 @Plugin(
     examples = {
@@ -58,23 +59,23 @@ public class GetPayrollStatus extends AbstractPayfitTask implements RunnableTask
 
     @Override
     public Output run(RunContext runContext) throws Exception {
-        String rDate = PayfitValidators.accountingPeriod(PayfitConnections.required(runContext, this.date, "date"));
-        try (PayfitClient client = client(runContext)) {
-            PayrollStatus payrollStatus = client.read(
+        var rDate = PayfitValidators.accountingPeriod(PayfitConnections.required(runContext, this.date, "date"));
+        try (var client = client(runContext)) {
+            var payrollStatus = client.read(
                 client.companyPath("/payroll-status"),
                 Map.of("date", rDate),
                 PayrollStatus.class
             );
 
-            Instant executionEnd = null;
-            if (payrollStatus != null && payrollStatus.getExecutionEndDate() != null && !payrollStatus.getExecutionEndDate().isBlank()) {
-                executionEnd = Instant.parse(payrollStatus.getExecutionEndDate());
+            if (payrollStatus == null || payrollStatus.getStatus() == null) {
+                throw new IllegalStateException("Empty response from PayFit payroll-status API for period " + rDate + " - check the company id and API key");
             }
 
-            boolean completed = payrollStatus != null && "completed".equalsIgnoreCase(payrollStatus.getStatus());
+            var executionEnd = parseExecutionEndDate(payrollStatus.getExecutionEndDate(), rDate);
+            var completed = "completed".equalsIgnoreCase(payrollStatus.getStatus());
 
             return Output.builder()
-                .status(payrollStatus == null ? null : payrollStatus.getStatus())
+                .status(payrollStatus.getStatus())
                 .executionEndDate(executionEnd)
                 .completed(completed)
                 .payrollStatus(payrollStatus)
@@ -82,19 +83,47 @@ public class GetPayrollStatus extends AbstractPayfitTask implements RunnableTask
         }
     }
 
+    private static Instant parseExecutionEndDate(String rawDate, String period) {
+        if (rawDate == null || rawDate.isBlank()) {
+            return null;
+        }
+        try {
+            return Instant.parse(rawDate);
+        } catch (DateTimeParseException e) {
+            throw new IllegalStateException("PayFit returned an invalid executionEndDate '" + rawDate + "' for period " + period, e);
+        }
+    }
+
     @Builder
     @Getter
     public static class Output implements io.kestra.core.models.tasks.Output {
-        @Schema(title = "Payroll status ('completed' or 'not_completed')")
+        @Schema(
+            title = "Payroll status (`completed` or `not_completed`)",
+            description = "Either `completed` or `not_completed`."
+        )
         private final String status;
 
-        @Schema(title = "Execution end timestamp of the payroll run for the period, if available")
+        @Schema(
+            title = "Execution end timestamp of the payroll run for the period, if available",
+            description = "Execution end timestamp in UTC, null while the payroll is not completed."
+        )
         private final Instant executionEndDate;
 
-        @Schema(title = "Whether the payroll for the given period is completed")
-        private final Boolean completed;
+        @Schema(
+            title = "Whether the payroll for the given period is completed",
+            description = "Convenience boolean flag indicating whether status is `completed`."
+        )
+        private final boolean completed;
 
         @Schema(title = "Payroll status payload returned by PayFit")
         private final PayrollStatus payrollStatus;
+
+        public boolean isCompleted() {
+            return this.completed;
+        }
+
+        public boolean getCompleted() {
+            return this.completed;
+        }
     }
 }

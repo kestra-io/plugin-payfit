@@ -19,6 +19,7 @@ Scopes follow the PayFit documentation. Collaborator reads need `collaborators:r
 | `auth.Introspect` | `POST https://oauth.payfit.com/introspect` |
 | `auth.AccessToken` | `POST https://oauth.payfit.com/token` |
 | `company.Get` | `GET /companies/{companyId}` |
+| `company.GetPayrollStatus` | `GET /companies/{companyId}/payroll-status?date=YYYYMM` |
 | `collaborators.List` | `GET /companies/{companyId}/collaborators` |
 | `collaborators.Get` | `GET /companies/{companyId}/collaborators/{collaboratorId}` |
 | `collaborators.Create` | `POST /companies/{companyId}/collaborators` |
@@ -38,7 +39,7 @@ A collaborator created through the API has no contract yet and does not appear i
 
 Absence creation sends `startDate` and `endDate` as `{date, moment}` objects. Cancellation is `DELETE /companies/{companyId}/absences/{absenceId}` and returns 204. Absences cannot be updated.
 
-`accounting.Export` calls the French accounting v2 endpoint and also stops locally unless the company country is `FR`. The payroll period matches `^2\d{3}(0[1-9]|1[0-2])$`, for example `202612`. `payslips.Download` stores the PDF returned by PayFit. List payslips first when the payslip id is not already known. Absence types are the country codes published by PayFit (`fr_`, `es_`, and `uk_`). A British company is `GB` in the company payload and uses the `uk_` absence types.
+`company.GetPayrollStatus` checks whether the payroll for a period has finished and uses the same `YYYYMM` period format as `accounting.Export`; `completed` is a convenience flag indicating whether the payroll is complete. `accounting.Export` calls the French accounting v2 endpoint and also stops locally unless the company country is `FR`. The payroll period matches `^2\d{3}(0[1-9]|1[0-2])$`, for example `202612`. `payslips.Download` stores the PDF returned by PayFit. List payslips first when the payslip id is not already known. Absence types are the country codes published by PayFit (`fr_`, `es_`, and `uk_`). A British company is `GB` in the company payload and uses the `uk_` absence types.
 
 Requests that return 408, 425, 429, or a retryable 5xx are retried with exponential backoff. A `Retry-After` header is honored for up to five seconds. Other 4xx responses fail immediately with the PayFit status and response body.
 

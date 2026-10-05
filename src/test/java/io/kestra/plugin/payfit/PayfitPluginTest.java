@@ -398,6 +398,7 @@ class PayfitPluginTest {
                 .run(runContext());
 
             assertEquals("completed", completed.getStatus());
+            assertTrue(completed.isCompleted());
             assertTrue(completed.getCompleted());
             assertEquals(Instant.parse("2026-10-25T14:30:00.000Z"), completed.getExecutionEndDate());
             assertEquals("completed", completed.getPayrollStatus().getStatus());
@@ -414,6 +415,7 @@ class PayfitPluginTest {
                 .run(runContext());
 
             assertEquals("not_completed", notCompleted.getStatus());
+            assertFalse(notCompleted.isCompleted());
             assertFalse(notCompleted.getCompleted());
             assertEquals(null, notCompleted.getExecutionEndDate());
 
@@ -424,6 +426,27 @@ class PayfitPluginTest {
                 .date(Property.ofValue("202613"))
                 .build()
                 .run(runContext()));
+
+            server.requests.clear();
+            server.handler(request -> PayfitMockServer.Response.json(200, "{}"));
+            assertThrows(IllegalStateException.class, () -> GetPayrollStatus.builder()
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .date(Property.ofValue("202610"))
+                .build()
+                .run(runContext()));
+
+            server.requests.clear();
+            server.handler(request -> PayfitMockServer.Response.json(200, "{\"status\":\"completed\",\"executionEndDate\":\"not-a-date\"}"));
+            var invalidDateEx = assertThrows(IllegalStateException.class, () -> GetPayrollStatus.builder()
+                .apiKey(Property.ofValue("secret"))
+                .companyId(Property.ofValue("company-1"))
+                .baseUrl(Property.ofValue(server.baseUrl()))
+                .date(Property.ofValue("202610"))
+                .build()
+                .run(runContext()));
+            assertTrue(invalidDateEx.getMessage().contains("invalid executionEndDate 'not-a-date' for period 202610"));
         }
     }
 
