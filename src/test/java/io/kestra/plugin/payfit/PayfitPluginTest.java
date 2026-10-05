@@ -399,7 +399,6 @@ class PayfitPluginTest {
 
             assertEquals("completed", completed.getStatus());
             assertTrue(completed.isCompleted());
-            assertTrue(completed.getCompleted());
             assertEquals(Instant.parse("2026-10-25T14:30:00.000Z"), completed.getExecutionEndDate());
             assertEquals("completed", completed.getPayrollStatus().getStatus());
 
@@ -416,7 +415,6 @@ class PayfitPluginTest {
 
             assertEquals("not_completed", notCompleted.getStatus());
             assertFalse(notCompleted.isCompleted());
-            assertFalse(notCompleted.getCompleted());
             assertEquals(null, notCompleted.getExecutionEndDate());
 
             assertThrows(IllegalArgumentException.class, () -> GetPayrollStatus.builder()

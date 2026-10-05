@@ -119,13 +119,5 @@ public class GetPayrollStatus extends AbstractPayfitTask implements RunnableTask
 
         @Schema(title = "Payroll status payload returned by PayFit")
         private final PayrollStatus payrollStatus;
-
-        public boolean isCompleted() {
-            return this.completed;
-        }
-
-        public boolean getCompleted() {
-            return this.completed;
-        }
     }
 }
