@@ -28,6 +28,12 @@ java {
     targetCompatibility = targetJavaVersion
 }
 
+configurations.matching { it.canBeResolved }.configureEach {
+    attributes {
+        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+    }
+}
+
 group = "io.kestra.plugin"
 description = 'Payfit plugin for Kestra'
 

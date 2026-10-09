@@ -13,7 +13,6 @@ import io.kestra.core.models.annotations.PluginProperty;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.triggers.TriggerOutput;
-import io.kestra.core.queues.QueueException;
 import io.kestra.core.runners.RunContext;
 import io.kestra.core.serializers.JacksonMapper;
 import io.kestra.plugin.core.trigger.AbstractWebhookTrigger;
@@ -112,12 +111,9 @@ public class Webhook extends AbstractWebhookTrigger implements TriggerOutput<Web
         if (maybeExecution.isEmpty()) {
             return Mono.just(HttpResponse.of(HttpResponse.Status.CONFLICT));
         }
-        try {
-            context.webhookService().startExecution(maybeExecution.get());
-        } catch (QueueException e) {
-            return Mono.just(HttpResponse.of(HttpResponse.Status.INTERNAL_SERVER_ERROR));
-        }
-        return Mono.just(HttpResponse.of(context.webhookService().executionResponse(maybeExecution.get())));
+        Execution execution = maybeExecution.get();
+        return context.webhookService().startExecution(execution)
+            .then(Mono.fromCallable(() -> HttpResponse.of(context.webhookService().executionResponse(execution))));
     }
 
     private static String header(HttpRequest request, String name) {
