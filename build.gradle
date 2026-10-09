@@ -21,11 +21,17 @@ repositories {
     }
 }
 
-final targetJavaVersion = JavaVersion.VERSION_25
+final targetJavaVersion = JavaVersion.VERSION_21
 
 java {
     sourceCompatibility = targetJavaVersion
     targetCompatibility = targetJavaVersion
+}
+
+configurations.matching { it.canBeResolved }.configureEach {
+    attributes {
+        attribute(TargetJvmVersion.TARGET_JVM_VERSION_ATTRIBUTE, 25)
+    }
 }
 
 group = "io.kestra.plugin"
