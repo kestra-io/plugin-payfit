@@ -111,7 +111,7 @@ public class Webhook extends AbstractWebhookTrigger implements TriggerOutput<Web
         if (maybeExecution.isEmpty()) {
             return Mono.just(HttpResponse.of(HttpResponse.Status.CONFLICT));
         }
-        Execution execution = maybeExecution.get();
+        var execution = maybeExecution.get();
         return context.webhookService().startExecution(execution)
             .then(Mono.fromCallable(() -> HttpResponse.of(context.webhookService().executionResponse(execution))));
     }
