@@ -1,9 +1,12 @@
 package io.kestra.plugin.payfit.webhook;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.Optional;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+
+import io.kestra.core.services.WebhookService;
 
 import io.kestra.core.http.HttpRequest;
 import io.kestra.core.http.HttpResponse;
@@ -112,8 +115,21 @@ public class Webhook extends AbstractWebhookTrigger implements TriggerOutput<Web
             return Mono.just(HttpResponse.of(HttpResponse.Status.CONFLICT));
         }
         var execution = maybeExecution.get();
-        return context.webhookService().startExecution(execution)
+        return startExecution(context.webhookService(), execution)
             .then(Mono.fromCallable(() -> HttpResponse.of(context.webhookService().executionResponse(execution))));
+    }
+
+    private static Mono<Void> startExecution(WebhookService webhookService, Execution execution) {
+        return Mono.defer(() -> {
+            try {
+                var result = webhookService.getClass().getMethod("startExecution", Execution.class).invoke(webhookService, execution);
+                return result instanceof Mono<?> mono ? mono.then() : Mono.<Void>empty();
+            } catch (InvocationTargetException e) {
+                return Mono.error(e.getCause());
+            } catch (ReflectiveOperationException e) {
+                return Mono.error(e);
+            }
+        });
     }
 
     private static String header(HttpRequest request, String name) {

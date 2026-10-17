@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-@KestraTest(startRunner = true, startWorker = false, startWorkerController = false)
+@KestraTest(startRunner = true, startWorker = false)
 class WebhookTest {
     private static final String RAW_SECRET = "test-secret-key-for-svix-testing-1234567";
     private static final String SVIX_SECRET = "whsec_" + Base64.getEncoder().encodeToString(RAW_SECRET.getBytes(StandardCharsets.UTF_8));
