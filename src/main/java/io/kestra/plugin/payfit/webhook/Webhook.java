@@ -6,8 +6,6 @@ import java.util.Optional;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 
-import io.kestra.core.services.WebhookService;
-
 import io.kestra.core.http.HttpRequest;
 import io.kestra.core.http.HttpResponse;
 import io.kestra.core.models.annotations.Example;
@@ -18,6 +16,7 @@ import io.kestra.core.models.property.Property;
 import io.kestra.core.models.triggers.TriggerOutput;
 import io.kestra.core.runners.RunContext;
 import io.kestra.core.serializers.JacksonMapper;
+import io.kestra.core.services.WebhookService;
 import io.kestra.plugin.core.trigger.AbstractWebhookTrigger;
 import io.kestra.plugin.core.trigger.WebhookContext;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -51,7 +50,7 @@ import reactor.core.publisher.Mono;
                 tasks:
                   - id: log
                     type: io.kestra.plugin.core.log.Log
-                    message: "PayFit event {{ trigger.eventType }}"
+                    message: "PayFit event {{ trigger.eventType ?? 'unknown' }}"
 
                 triggers:
                   - id: payfit
@@ -119,6 +118,7 @@ public class Webhook extends AbstractWebhookTrigger implements TriggerOutput<Web
             .then(Mono.fromCallable(() -> HttpResponse.of(context.webhookService().executionResponse(execution))));
     }
 
+    // Kestra 1.3: void startExecution(Execution) throws QueueException; 2.0: Mono<?> startExecution(Execution). Called reflectively so one JAR runs on both.
     private static Mono<Void> startExecution(WebhookService webhookService, Execution execution) {
         return Mono.defer(() -> {
             try {
