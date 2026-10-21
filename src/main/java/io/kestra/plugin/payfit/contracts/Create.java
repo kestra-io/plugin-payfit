@@ -42,6 +42,13 @@ import lombok.experimental.SuperBuilder;
                 namespace: company.team
 
                 tasks:
+                  - id: create
+                    type: io.kestra.plugin.payfit.collaborators.Create
+                    apiKey: "{{ secret('PAYFIT_API_KEY') }}"
+                    firstName: "Ada"
+                    lastName: "Lovelace"
+                    personalEmail: "ada@example.com"
+
                   - id: contract
                     type: io.kestra.plugin.payfit.contracts.Create
                     apiKey: "{{ secret('PAYFIT_API_KEY') }}"
