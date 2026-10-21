@@ -1,6 +1,5 @@
 package io.kestra.plugin.payfit.webhook;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
 import java.util.Optional;
 
@@ -16,7 +15,6 @@ import io.kestra.core.models.property.Property;
 import io.kestra.core.models.triggers.TriggerOutput;
 import io.kestra.core.runners.RunContext;
 import io.kestra.core.serializers.JacksonMapper;
-import io.kestra.core.services.WebhookService;
 import io.kestra.plugin.core.trigger.AbstractWebhookTrigger;
 import io.kestra.plugin.core.trigger.WebhookContext;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -114,22 +112,8 @@ public class Webhook extends AbstractWebhookTrigger implements TriggerOutput<Web
             return Mono.just(HttpResponse.of(HttpResponse.Status.CONFLICT));
         }
         var execution = maybeExecution.get();
-        return startExecution(context.webhookService(), execution)
+        return context.webhookService().startExecution(execution)
             .then(Mono.fromCallable(() -> HttpResponse.of(context.webhookService().executionResponse(execution))));
-    }
-
-    // Kestra 1.3: void startExecution(Execution) throws QueueException; 2.0: Mono<?> startExecution(Execution). Called reflectively so one JAR runs on both.
-    private static Mono<Void> startExecution(WebhookService webhookService, Execution execution) {
-        return Mono.defer(() -> {
-            try {
-                var result = webhookService.getClass().getMethod("startExecution", Execution.class).invoke(webhookService, execution);
-                return result instanceof Mono<?> mono ? mono.then() : Mono.<Void>empty();
-            } catch (InvocationTargetException e) {
-                return Mono.error(e.getCause());
-            } catch (ReflectiveOperationException e) {
-                return Mono.error(e);
-            }
-        });
     }
 
     private static String header(HttpRequest request, String name) {
